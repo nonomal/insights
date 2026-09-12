@@ -47,6 +47,9 @@ watchEffect(() => {
 	}
 })
 
+// a pivot aggregates on its own path and ignores a measure's format
+const isPivoted = computed(() => config.value.columns?.some((c) => c?.column_name))
+
 const measuresAsDimensions = computed<DimensionOption[]>(() =>
 	props.columnOptions
 		.filter((o) => FIELDTYPES.NUMBER.includes(o.data_type))
@@ -206,7 +209,7 @@ function updateTextWrap(column_name: string, wrap: boolean | undefined) {
 				</template>
 			</DraggableList>
 			<button
-				class="mt-1.5 text-left text-xs text-gray-600 hover:underline"
+				class="mt-1.5 text-left text-xs text-ink-gray-5 hover:underline"
 				@click="config.rows.push({} as any)"
 			>
 				+ Add column
@@ -228,7 +231,7 @@ function updateTextWrap(column_name: string, wrap: boolean | undefined) {
 					</template>
 				</DraggableList>
 				<button
-					class="mt-1.5 text-left text-xs text-gray-600 hover:underline"
+					class="mt-1.5 text-left text-xs text-ink-gray-5 hover:underline"
 					@click="config.columns.push({} as any)"
 				>
 					+ Add column
@@ -258,13 +261,14 @@ function updateTextWrap(column_name: string, wrap: boolean | undefined) {
 						<MeasurePicker
 							:model-value="item"
 							:column-options="props.columnOptions"
+							:enable-format="!isPivoted"
 							@update:model-value="Object.assign(item, $event || {})"
 							@remove="config.values.splice(index, 1)"
 						/>
 					</template>
 				</DraggableList>
 				<button
-					class="mt-1.5 text-left text-xs text-gray-600 hover:underline"
+					class="mt-1.5 text-left text-xs text-ink-gray-5 hover:underline"
 					@click="config.values.push({} as any)"
 				>
 					+ Add column
@@ -312,7 +316,7 @@ function updateTextWrap(column_name: string, wrap: boolean | undefined) {
 						@click="config.conditional_formatting.formats.splice(idx, 1)"
 					>
 						<template #icon>
-							<X class="h-4 w-4 text-gray-700" stroke-width="1.5" />
+							<X class="h-4 w-4 text-ink-gray-6" stroke-width="1.5" />
 						</template>
 					</Button>
 				</div>
@@ -320,7 +324,7 @@ function updateTextWrap(column_name: string, wrap: boolean | undefined) {
 
 			<Button class="w-full" @click="addNewRule">
 				<template #prefix>
-					<Plus class="h-4 w-4 text-gray-700" stroke-width="1.5" />
+					<Plus class="h-4 w-4 text-ink-gray-6" stroke-width="1.5" />
 				</template>
 				Add Rule
 			</Button>

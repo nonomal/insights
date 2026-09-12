@@ -9,9 +9,10 @@ import requests
 from frappe.model.document import Document
 from frappe.query_builder import Interval
 from frappe.query_builder.functions import Now
+from frappe.utils.html_utils import sanitize_html
+from frappe.utils.telemetry import capture
 
-from insights.api.telemetry import capture_event
-from insights.utils import DocShare, File
+from insights.utils import DocShare, File, get_app_url
 
 
 class InsightsDashboardv3(Document):
@@ -31,12 +32,44 @@ class InsightsDashboardv3(Document):
         items: DF.JSON | None
         linked_charts: DF.TableMultiSelect[InsightsDashboardChartv3]
         old_name: DF.Data | None
+        permission_user: DF.Link | None
         preview_image: DF.Data | None
         share_link: DF.Data | None
         title: DF.Data | None
         vertical_compact_layout: DF.Check
         workbook: DF.Link
     # end: auto-generated types
+
+    def before_validate(self):
+        self.sanitize_text_items()
+        # linked_charts is derived from items, so build it before anything
+        # validates it - validate() runs before before_save()
+        self.set_linked_charts()
+
+    def sanitize_text_items(self):
+        """A text item is authored as rich text and rendered as HTML.
+
+        The framework sanitizes the fields it knows carry markup, and `items`
+        is a JSON field, so nothing reaches inside it. Sanitizing on the way in
+        makes the stored text safe for every reader of the dashboard, including
+        the Guest who follows a public link.
+        """
+        items = frappe.parse_json(self.items) or []
+        sanitized = False
+        for item in items:
+            if item.get("type") != "text" or not item.get("text"):
+                continue
+            clean = sanitize_html(item["text"], always_sanitize=True)
+            sanitized = sanitized or clean != item["text"]
+            item["text"] = clean
+
+        if sanitized:
+            self.items = items
+
+    def validate(self):
+        from insights.permissions import check_dashboard_chart_access
+
+        check_dashboard_chart_access(self)
 
     @frappe.whitelist()
     def track_view(self):
@@ -70,8 +103,20 @@ class InsightsDashboardv3(Document):
         d.has_workbook_access = frappe.has_permission("Insights Workbook", ptype="read", doc=self.workbook)
         return d
 
+    def after_insert(self):
+        # A dashboard created already populated (e.g. imported from a template) is
+        # never saved again, so before_save's diff-based preview never runs and it
+        # lands without a preview. Generate the initial one here when it has content.
+        if frappe.flags.in_patch or not frappe.parse_json(self.items):
+            return
+        frappe.enqueue_doc(
+            doctype=self.doctype,
+            name=self.name,
+            method="generate_dashboard_preview",
+            enqueue_after_commit=True,
+        )
+
     def before_save(self):
-        self.set_linked_charts()
         self.enqueue_update_dashboard_preview()
 
     def set_linked_charts(self):
@@ -84,31 +129,37 @@ class InsightsDashboardv3(Document):
     def get_distinct_column_values(
         self, query: str, column_name: str, search_term: str | None = None, adhoc_filters: dict | None = None
     ):
+        from insights.permissions import check_referenced_query_access
+
         is_guest = frappe.session.user == "Guest"
         if is_guest and not self.is_public:
             raise frappe.PermissionError
 
-        if not self.has_permission("write"):
-            self.check_linked_filters(query, column_name)
+        if not self.is_filter_column(query, column_name):
+            frappe.throw(
+                frappe._("This column is not available as a filter on this dashboard"),
+                frappe.PermissionError,
+            )
+
+        check_referenced_query_access(query)
 
         doc = frappe.get_cached_doc("Insights Query v3", query)
         return doc.get_distinct_column_values(
             column_name, search_term=search_term, adhoc_filters=adhoc_filters
         )
 
-    def check_linked_filters(self, query, column_name):
+    def is_filter_column(self, query, column_name):
+        # a filter links a column as "links": { '<chart>': "`<query>`.`<column>`" }
+        pattern = "^`([^`]+)`\\.`([^`]+)`$"
         items = frappe.parse_json(self.items)
-        filters = [item for item in items if item["type"] == "filter"]
-        for f in filters:
-            # check if there is a filter which has "link": { 'chart': "`<query>`.`<column>`" }
-            linked_columns = f.get("links", {}).values()
-            pattern = "^`([^`]+)`\\.`([^`]+)`$"
-            for linked_column in linked_columns:
+        for item in items:
+            if item["type"] != "filter":
+                continue
+            for linked_column in item.get("links", {}).values():
                 match = re.match(pattern, linked_column)
-                if match and match.groups()[0] == query and match.groups()[1] == column_name:
+                if match and match.groups() == (query, column_name):
                     return True
-
-        raise frappe.PermissionError
+        return False
 
     def enqueue_update_dashboard_preview(self):
         if self.is_new() or not self.get_doc_before_save() or frappe.flags.in_patch:
@@ -134,9 +185,15 @@ class InsightsDashboardv3(Document):
         self.generate_dashboard_preview()
 
     def generate_dashboard_preview(self):
-        with generate_preview_key() as key:
+        with generate_preview_key(self.name) as key:
             preview = get_page_preview(
-                frappe.utils.get_url(f"/insights/shared/dashboard/{self.name}"),
+                # The browser runs on the server and carries a preview key, so
+                # the page it opens is the site's own, not one a request header
+                # named.
+                frappe.utils.get_url(
+                    get_app_url(f"/shared/dashboard/{self.name}"),
+                    allow_header_override=False,
+                ),
                 headers={
                     "X-Insights-Preview-Key": key,
                 },
@@ -194,6 +251,13 @@ class InsightsDashboardv3(Document):
         is_shared_with_organization = data.get("is_shared_with_organization")
         people_with_access = data.get("people_with_access") or []
 
+        # this writes is_public with db_set, so validate() never runs. Check
+        # before any share is applied, so a refusal leaves nothing half-done.
+        if is_public:
+            from insights.permissions import check_dashboard_chart_access
+
+            check_dashboard_chart_access(self)
+
         existing_shares = frappe.get_all(
             "DocShare",
             filters={
@@ -236,15 +300,34 @@ class InsightsDashboardv3(Document):
             for share in org_shares:
                 frappe.delete_doc("DocShare", share.name, ignore_permissions=True)
 
-        self.db_set("is_public", is_public)
+        # a public execution has no caller of its own, so the rows it returns are
+        # filtered by whoever published the dashboard
+        self.db_set(
+            {
+                "is_public": is_public,
+                "permission_user": frappe.session.user if is_public else None,
+            }
+        )
 
         if people_with_access:
-            capture_event("dashboard_shared_with_user")
+            capture("dashboard_shared_with_user", "insights")
         if is_public:
-            capture_event("dashboard_set_public")
+            capture("dashboard_set_public", "insights")
 
 
 def get_page_preview(url: str, headers: dict | None = None) -> bytes:
+    # Newer Frappe renders previews in-process via headless Chromium — no
+    # external service, and the site's own /assets and /files resolve locally.
+    # Older versions fall back to the preview_generator HTTP service.
+    try:
+        from frappe.utils.preview import get_preview_from_url
+    except ImportError:
+        return get_page_preview_via_service(url, headers)
+
+    return get_preview_from_url(url, wait_for=1000, headers=headers or {}, format="jpeg")
+
+
+def get_page_preview_via_service(url: str, headers: dict | None = None) -> bytes:
     PREVIEW_GENERATOR_URL = (
         frappe.conf.preview_generator_url
         or "https://preview.frappe.cloud/api/method/preview_generator.api.generate_preview_from_url"
@@ -293,10 +376,23 @@ def create_preview_file(content: bytes, dashboard_name: str):
 
 
 @contextmanager
-def generate_preview_key():
+def generate_preview_key(dashboard: str):
+    """A key that stands in for the viewer of one dashboard, for one render.
+
+    The key names its dashboard, so a leaked key reads that dashboard and the
+    charts and queries on it — the same documents the preview image itself
+    shows — and nothing else.
+
+    It names its viewer too. The render arrives as Guest, so the rows it draws
+    are filtered by the user the key was cut for, and the image shows what that
+    user would see.
+    """
     try:
         key = frappe.generate_hash()
-        frappe.cache.set_value(f"insights_preview_key:{key}", True)
+        frappe.cache.set_value(
+            f"insights_preview_key:{key}",
+            {"dashboard": dashboard, "user": frappe.session.user},
+        )
         yield key
     finally:
         frappe.cache.delete_value(f"insights_preview_key:{key}")

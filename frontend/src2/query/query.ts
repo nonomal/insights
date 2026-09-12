@@ -6,6 +6,7 @@ import { computed, reactive, ref, toRefs, unref, watch } from 'vue'
 import {
 	copy,
 	copyToClipboard,
+	getErrorMessage,
 	getUniqueId,
 	safeJSONParse,
 	waitUntil,
@@ -19,6 +20,7 @@ import { createToast } from '../helpers/toasts'
 import { __ } from '../translation'
 import router from '../router'
 import session from '../session'
+import { isServerBusyError, scheduleQueryExecution } from './execution_queue'
 import {
 	AdhocFilters,
 	CodeArgs,
@@ -58,6 +60,7 @@ import {
 	custom_operation,
 	expression,
 	filter_group,
+	getAggregateConditions,
 	getDimensions,
 	getFormattedRows,
 	getMeasures,
@@ -84,6 +87,12 @@ export default function useQuery(name: string) {
 	const query = makeQuery(name)
 	queries.set(key, query)
 	return query
+}
+
+// throwaway queries are never looked up by name, so keep them out of the shared
+// cache, otherwise every chart refresh/drill-down leaks an entry for the session
+export function makeAdhocQuery() {
+	return makeQuery('new-query-' + getUniqueId())
 }
 
 export function makeQuery(name: string) {
@@ -148,6 +157,7 @@ export function makeQuery(name: string) {
 	})
 
 	const isServerBusy = ref(false)
+	const executionError = ref('')
 	const result = ref({ ...EMPTY_RESULT })
 	const executing = ref(false)
 	const downloading = ref(false)
@@ -163,54 +173,80 @@ export function makeQuery(name: string) {
 	let currentExecutionToken = 0
 
 	const adhocFilters = ref<AdhocFilters>()
+	// set by whoever owns the layout, so a screenful of queries runs in a sensible
+	// order once they outnumber the free slots
+	const executionPriority = ref<number>()
+
+	function currentExecutionArgs() {
+		return {
+			operations: currentOperations.value,
+			adhoc_filters: adhocFilters.value,
+			page: currentPage.value,
+			page_size: pageSize.value,
+		}
+	}
+
+	// "make sure this query has a result" - for the reactive and mount-time
+	// callers that re-ask on every render. execute() is "run it now", so it
+	// must not be the one that answers them: a caller that reads the result and
+	// re-asks when it is empty would loop for as long as the run keeps failing.
+	async function ensureResult() {
+		if (!query.islocal) {
+			await waitUntil(() => query.isloaded)
+		}
+		if (lastExecutionArgs && isEqual(lastExecutionArgs, currentExecutionArgs())) {
+			return
+		}
+		return execute()
+	}
+
 	async function execute(force: boolean = false, page_size?: number) {
 		if (!query.islocal) {
 			await waitUntil(() => query.isloaded)
 		}
 
 		isServerBusy.value = false
-
-		if (!query.doc.operations.length) {
-			result.value = { ...EMPTY_RESULT }
-			return
-		}
+		executionError.value = ''
 
 		if (page_size) {
 			pageSize.value = page_size
 			currentPage.value = 1
 		}
 
-		if (
-			!force &&
-			lastExecutionArgs &&
-			isEqual(lastExecutionArgs, {
-				operations: currentOperations.value,
-				adhoc_filters: adhocFilters.value,
-				page: currentPage.value,
-				page_size: pageSize.value,
-			})
-		) {
-			return Promise.resolve()
+		// recorded before the request, and above the empty-operations return,
+		// because both paths replace `result`. A caller watching it would
+		// otherwise re-ask before the write landed, or never see one at all.
+		lastExecutionArgs = currentExecutionArgs()
+
+		if (!query.doc.operations.length) {
+			result.value = { ...EMPTY_RESULT }
+			return
 		}
 
 		executing.value = true
 		const token = ++currentExecutionToken
-		return query
-			.call('execute', {
-				active_operation_idx: activeOperationIdx.value,
-				adhoc_filters: adhocFilters.value,
-				force: Boolean(force),
-				page: currentPage.value,
-				page_size: pageSize.value,
-			})
+		// discard the result if a newer execution has superseded this one
+		const isStale = () => token !== currentExecutionToken
+		return scheduleQueryExecution(
+			() =>
+				query.call('execute', {
+					active_operation_idx: activeOperationIdx.value,
+					adhoc_filters: adhocFilters.value,
+					force: Boolean(force),
+					page: currentPage.value,
+					page_size: pageSize.value,
+				}),
+			{ isStale, priority: executionPriority.value }
+		)
 		.then((response: any) => {
-			// Discard stale responses — a newer execution has superseded this one
-			if (token !== currentExecutionToken) return
+			if (isStale()) return
 			if (!response) return
 
 			result.value.executedSQL = response.sql
-			result.value.columns = response.columns
+			// the row keeps a hidden column; only the listing drops it
+			result.value.columns = response.columns.filter((c: QueryResultColumn) => !c.hidden)
 			result.value.rows = response.rows
+			Object.assign(session.site.currency_symbols, response.currency_symbols || {})
 			result.value.totalRowCount = 0
 			result.value.formattedRows = getFormattedRows(result.value, query.doc.operations)
 
@@ -235,21 +271,16 @@ export function makeQuery(name: string) {
 			result.value.lastExecutedAt = new Date()
 		})
 			.catch((err) => {
-				if (err.status === 503 && err.message && err.message.includes('ServiceUnavailableError')) {
-					isServerBusy.value = true
-				}
-				if (token !== currentExecutionToken) return
+				if (isStale()) return
+				isServerBusy.value = isServerBusyError(err)
+				// a failed run used to clear the table and say nothing, so the
+				// message has to survive the reset for the editor to show it
+				executionError.value = isServerBusy.value ? '' : getErrorMessage(err)
 				result.value = { ...EMPTY_RESULT }
 			})
 			.finally(() => {
-				if (token !== currentExecutionToken) return
+				if (isStale()) return
 				executing.value = false
-				lastExecutionArgs = {
-					operations: currentOperations.value,
-					adhoc_filters: adhocFilters.value,
-					page: currentPage.value,
-					page_size: pageSize.value,
-				}
 			})
 	}
 
@@ -271,11 +302,12 @@ export function makeQuery(name: string) {
 		}
 
 		fetchingCount.value = true
-		return query
-			.call('get_count', {
+		return scheduleQueryExecution(() =>
+			query.call('get_count', {
 				active_operation_idx: activeOperationIdx.value,
 				adhoc_filters: adhocFilters.value,
 			})
+		)
 			.then((count: number) => {
 				result.value.totalRowCount = count || 0
 			})
@@ -796,7 +828,7 @@ export function makeQuery(name: string) {
 			drillDownFilters = getDrillDownFiltersForSummarize(ops, sliceIdx, col, currRow)
 		}
 
-		const drill_down_query = useQuery('new-query-' + getUniqueId())
+		const drill_down_query = makeAdhocQuery()
 		drill_down_query.doc.title = 'Drill Down'
 		drill_down_query.doc.use_live_connection = query.doc.use_live_connection
 		drill_down_query.autoExecute = true
@@ -949,32 +981,9 @@ export function makeQuery(name: string) {
 			return []
 		}
 
-		// patterns to match to extract the condition
-		// 1. count_if(order_status == 'delivered')
-		// 2. count_if(order_status == 'delivered', order_id)
-		// 3. sum_if(order_status == 'delivered', order_id)
-		// 4. distinct_count_if(order_status == 'delivered', order_id)
-		const exp = measure.expression.expression
-		const patterns = [
-			/^count_if\(([^,]+),\s*([^)]+)\)$/,
-			/^count_if\(([^,]+)\)$/,
-			/^sum_if\(([^,]+),\s*([^)]+)\)$/,
-			/^distinct_count_if\(([^,]+),\s*([^)]+)\)$/,
-		]
-		const pattern = patterns.find((p) => exp.match(p))
-		if (pattern) {
-			const match = exp.match(pattern)
-			if (match) {
-				const condition = match[1].trim()
-				return [
-					{
-						expression: expression(condition),
-					},
-				]
-			}
-		}
-
-		return []
+		return getAggregateConditions(measure.expression.expression).map((condition) => ({
+			expression: expression(condition),
+		}))
 	}
 
 	function getDrillDownFiltersForSummarize(
@@ -1076,30 +1085,6 @@ export function makeQuery(name: string) {
 		}
 	)
 
-	const explaining = ref(false)
-	const explainResult = ref<{ plan: string; is_analyze: boolean } | null>(null)
-	async function explainQuery() {
-		if (!query.doc.operations.length) {
-			createToast({ title: __('No query to explain'), variant: 'warning' })
-			return
-		}
-		explaining.value = true
-		try {
-			const response = await query.call('explain', {
-				active_operation_idx: activeOperationIdx.value,
-			})
-			explainResult.value = response
-		} catch (error: any) {
-			createToast({
-				title: __('Explain Failed'),
-				message: error?.message || __('Failed to get query plan'),
-				variant: 'error',
-			})
-		} finally {
-			explaining.value = false
-		}
-	}
-
 	const importingTables = ref(false)
 	async function refreshStoredTables() {
 		importingTables.value = true
@@ -1122,7 +1107,7 @@ export function makeQuery(name: string) {
 	}
 
 	const autoExecute = ref(false)
-	watchToggle(currentOperations, () => autoExecute.value && execute(), {
+	watchToggle(currentOperations, () => autoExecute.value && ensureResult(), {
 		immediate: true,
 		deep: true,
 		toggleCondition: () => autoExecute.value,
@@ -1159,11 +1144,13 @@ export function makeQuery(name: string) {
 		currentOperations,
 		activeEditOperation,
 		adhocFilters,
+		executionPriority,
 
 		autoExecute,
 		executing,
 		fetchingCount,
 		isServerBusy,
+		executionError,
 		result,
 
 		currentPage,
@@ -1171,12 +1158,10 @@ export function makeQuery(name: string) {
 		goToPage,
 
 		execute,
+		ensureResult,
 		fetchResultCount,
 		refreshStoredTables,
 		importingTables,
-		explainQuery,
-		explaining,
-		explainResult,
 
 		setOperations,
 		setActiveOperation,

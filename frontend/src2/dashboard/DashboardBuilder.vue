@@ -3,7 +3,7 @@ import { useStorage, useWindowSize } from '@vueuse/core'
 import { Edit3, RefreshCcw, Share2 } from 'lucide-vue-next'
 import { computed, provide, ref, watchEffect } from 'vue'
 import ContentEditable from '../components/ContentEditable.vue'
-import { safeJSONParse, waitUntil } from '../helpers'
+import { downloadImage, safeJSONParse, waitUntil } from '../helpers'
 import { WorkbookChart, WorkbookQuery } from '../types/workbook.types'
 import useDashboard from './dashboard'
 import DashboardChartSelectorDialog from './DashboardChartSelectorDialog.vue'
@@ -57,14 +57,20 @@ function onDrop(event: DragEvent) {
 const showShareDialog = ref(false)
 
 const verticalCompact = useStorage('dashboard_vertical_compact', true)
+
+const dashboardContainer = ref<HTMLElement | null>(null)
+async function downloadDashboardImage() {
+	if (!dashboardContainer.value) return
+	await downloadImage(dashboardContainer.value, `${dashboard.doc.title}.png`)
+}
 </script>
 
 <template>
-	<div class="relative flex h-full w-full overflow-hidden bg-gray-50">
+	<div class="relative flex h-full w-full overflow-hidden">
 		<div class="relative flex h-full w-full flex-col overflow-hidden">
 			<div class="flex items-center justify-between p-4 pb-3">
 				<ContentEditable
-					class="cursor-text rounded-sm text-lg font-semibold !text-gray-800 focus:ring-2 focus:ring-gray-700 focus:ring-offset-4"
+					class="cursor-text rounded-sm text-lg-semibold !text-ink-gray-7 focus:ring-2 focus:ring-outline-gray-6 focus:ring-offset-4"
 					:modelValue="dashboard.doc.title"
 					@returned="dashboard.doc.title = $event"
 					@blur="dashboard.doc.title = $event"
@@ -78,7 +84,7 @@ const verticalCompact = useStorage('dashboard_vertical_compact', true)
 						label="Refresh"
 					>
 						<template #prefix>
-							<RefreshCcw class="h-4 w-4 text-gray-700" stroke-width="1.5" />
+							<RefreshCcw class="h-4 w-4 text-ink-gray-6" stroke-width="1.5" />
 						</template>
 					</Button>
 					<Button
@@ -88,7 +94,7 @@ const verticalCompact = useStorage('dashboard_vertical_compact', true)
 						label="Share"
 					>
 						<template #prefix>
-							<Share2 class="h-4 text-gray-700" stroke-width="1.5" />
+							<Share2 class="h-4 text-ink-gray-6" stroke-width="1.5" />
 						</template>
 					</Button>
 					<Button
@@ -98,7 +104,7 @@ const verticalCompact = useStorage('dashboard_vertical_compact', true)
 						label="Edit"
 					>
 						<template #prefix>
-							<Edit3 class="h-4 w-4 text-gray-700" stroke-width="1.5" />
+							<Edit3 class="h-4 w-4 text-ink-gray-6" stroke-width="1.5" />
 						</template>
 					</Button>
 					<Button
@@ -139,12 +145,18 @@ const verticalCompact = useStorage('dashboard_vertical_compact', true)
 						Done
 					</Button>
 					<Dropdown
-						:button="{ icon: 'more-horizontal', variant: 'outline' }"
+						:button="{ icon: 'lucide-more-horizontal', variant: 'outline' }"
 						:options="[
 							{
 								label: __('Force Refresh'),
 								icon: RefreshCcw,
 								onClick: () => dashboard.refresh(true),
+							},
+							{
+								label: __('Export as PNG'),
+								variant: 'outline',
+								icon: 'lucide-download',
+								onClick: downloadDashboardImage,
 							},
 							dashboard.editing
 								? {
@@ -156,7 +168,7 @@ const verticalCompact = useStorage('dashboard_vertical_compact', true)
 							dashboard.editing
 								? {
 										label: __('Reset Layout'),
-										icon: 'refresh-ccw',
+										icon: 'lucide-refresh-ccw',
 										onClick: () => (
 											dashboard.discard(), (dashboard.editing = false)
 										),
@@ -166,7 +178,12 @@ const verticalCompact = useStorage('dashboard_vertical_compact', true)
 					/>
 				</div>
 			</div>
-			<div class="flex-1 overflow-y-auto p-2 pt-0" @dragover="onDragOver" @drop="onDrop">
+			<div
+				ref="dashboardContainer"
+				class="flex-1 overflow-y-auto p-2 pt-0"
+				@dragover="onDragOver"
+				@drop="onDrop"
+			>
 				<VueGridLayout
 					v-if="dashboard.doc.items.length > 0"
 					class="h-fit w-full"

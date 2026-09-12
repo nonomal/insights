@@ -4,15 +4,11 @@
 import os
 
 import frappe
-from frappe.defaults import get_user_default, set_user_default
 from frappe.handler import is_valid_http_method, is_whitelisted
 from frappe.monitor import add_data_to_monitor
 
-from insights.api.shared import is_public
-from insights.decorators import insights_whitelist, validate_type
-from insights.insights.doctype.insights_data_source_v3.connectors.duckdb import (
-    get_duckdb_connection,
-)
+from insights.api.shared import get_public_permission_user, is_public
+from insights.decorators import insights_whitelist
 from insights.insights.doctype.insights_data_source_v3.ibis_utils import (
     get_columns_from_schema,
 )
@@ -22,6 +18,8 @@ from insights.insights.doctype.insights_table_v3.insights_table_v3 import (
 from insights.insights.doctype.insights_team.insights_team import (
     check_data_source_permission,
 )
+from insights.permission_user import permission_user
+from insights.utils import get_currency_symbols, get_owned_file
 
 
 @insights_whitelist()
@@ -29,24 +27,37 @@ def get_app_version():
     return frappe.get_attr("insights" + ".__version__")
 
 
+@frappe.whitelist(allow_guest=True)  # nosemgrep - the payload is the site's country and
+# currency, which a public dashboard already prints
+def get_site_info():
+    """Settings of the site, not of whoever reads it. A guest opening a public
+    dashboard needs them to print an amount the way the workbook does."""
+    return {
+        "country": frappe.db.get_single_value("System Settings", "country"),
+        **get_currency_info(),
+    }
+
+
+def get_currency_info():
+    """The site's currency: the code a measure that names no column prints in.
+
+    Its symbol is the one entry the client starts with.
+
+    The `currency` global default covers a site with ERPNext and one without:
+    ERPNext's Global Defaults writes `default_currency` into it, and plain Frappe
+    writes `System Settings.currency` into it.
+    """
+    # System Settings writes the default only when the field changes, so read the
+    # field too — a site installed with a currency has never "changed" it
+    currency = frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "currency")
+    return {"currency": currency or None, "currency_symbols": get_currency_symbols([currency])}
+
+
 @insights_whitelist()
 def get_user_info():
-    is_admin = frappe.db.exists(
-        "Has Role",
-        {
-            "parenttype": "User",
-            "parent": frappe.session.user,
-            "role": ["in", ("Insights Admin")],
-        },
-    )
-    is_user = frappe.db.exists(
-        "Has Role",
-        {
-            "parenttype": "User",
-            "parent": frappe.session.user,
-            "role": ["in", ("Insights User")],
-        },
-    )
+    roles = frappe.get_roles()
+    is_user = "Insights User" in roles
+    is_admin = "Insights Admin" in roles
 
     user = frappe.db.get_value(
         "User", frappe.session.user, ["first_name", "last_name", "user_type", "language"], as_dict=1
@@ -54,10 +65,8 @@ def get_user_info():
 
     locale = user.get("language") or frappe.db.get_single_value("System Settings", "language") or "en"
 
-    _is_admin = is_admin or frappe.session.user == "Administrator"
-
     has_demo_data = False
-    if _is_admin:
+    if is_admin:
         from insights.setup.setup_wizard import check_demo_data_exists
 
         has_demo_data = check_demo_data_exists()
@@ -66,30 +75,19 @@ def get_user_info():
         "email": frappe.session.user,
         "first_name": user.get("first_name"),
         "last_name": user.get("last_name"),
-        "is_admin": _is_admin,
+        "is_admin": is_admin,
         "is_user": is_user or frappe.session.user == "Administrator",
-        # TODO: move to `get_session_info` since not user specific
-        "country": frappe.db.get_single_value("System Settings", "country"),
+        "can_download": is_admin or bool(frappe.db.get_single_value("Insights Settings", "allow_download")),
         "locale": locale,
-        "is_v2_instance": frappe.db.count("Insights Query") > 0,
-        "default_version": get_user_default("insights_default_version", frappe.session.user),
         "has_desk_access": user.get("user_type") == "System User",
         "has_demo_data": has_demo_data,
-        "fiscal_year_start": frappe.get_single_value("Insights Settings", "fiscal_year_start")
+        "fiscal_year_start": frappe.db.get_single_value("Insights Settings", "fiscal_year_start")
         or "01-04-2020",
     }
 
 
-@insights_whitelist()
-def update_default_version(version: str):
-    if get_user_default("insights_has_visited_v3", frappe.session.user) != "1":
-        set_user_default("insights_has_visited_v3", "1", frappe.session.user)
-
-    set_user_default("insights_default_version", version, frappe.session.user)
-
-
 def get_csv_file(filename: str):
-    file = frappe.get_doc("File", filename)
+    file = get_owned_file(filename)
     file_name = file.file_name or ""
     parts = file.get_extension()
     extension = parts[-1] if parts else ""
@@ -115,84 +113,87 @@ def create_uploads_if_not_exists():
 
 
 @insights_whitelist()
-@validate_type
 def get_file_data(filename: str):
     check_data_source_permission("uploads")
 
     file, ext = get_csv_file(filename)
-    file_path = file.get_full_path()
+    file_path = os.path.realpath(file.get_full_path())
     file_name = file.file_name.split(".")[0]
     file_name = frappe.scrub(file_name)
 
     create_uploads_if_not_exists()
     ds = frappe.get_doc("Insights Data Source v3", "uploads")
-    private_folder = frappe.utils.get_files_path(is_private=1)
-    private_folder = os.path.realpath(private_folder)
-    db = get_duckdb_connection(ds, read_only=True, allowed_dir=private_folder)
-    try:
-        if ext in ["xlsx"]:
-            table = db.read_xlsx(file_path)
-        elif ext in ["json", "jsonl"]:
-            table = db.read_json(file_path)
-        else:
-            table = db.read_csv(file_path, table_name=file_name)
+    with ds.write_connection() as db:
+        try:
+            table = _read_uploaded_table(db, file_path, ext)
+            columns = get_columns_from_schema(table.schema())
+            rows = table.head(50).execute().fillna("").to_dict(orient="records")
+            row_count = table.count().execute()
 
-        columns = get_columns_from_schema(table.schema())
-        rows = table.head(50).execute().fillna("").to_dict(orient="records")
-        row_count = table.count().execute()
-    finally:
-        db.disconnect()
-
-    return {
-        "tablename": file_name,
-        "rows": rows,
-        "columns": columns,
-        "total_rows": int(row_count),
-    }
+            return {
+                "tablename": file_name,
+                "rows": rows,
+                "columns": columns,
+                "total_rows": int(row_count),
+            }
+        except frappe.ValidationError:
+            raise
+        except Exception as e:
+            frappe.log_error(e)
+            raise
 
 
 @insights_whitelist()
-@validate_type
 def import_csv_data(filename: str, tablename: str = ""):
     check_data_source_permission("uploads")
 
     file, ext = get_csv_file(filename)
-    file_path = file.get_full_path()
+    file_path = os.path.realpath(file.get_full_path())
     table_name = frappe.scrub(tablename) if tablename else frappe.scrub(file.file_name.split(".")[0])
 
     create_uploads_if_not_exists()
     ds = frappe.get_doc("Insights Data Source v3", "uploads")
-    private_folder = os.path.realpath(frappe.utils.get_files_path(is_private=1))
-
-    db = get_duckdb_connection(ds, read_only=False, allowed_dir=private_folder)
-    try:
-        if ext in ["xlsx"]:
-            table = db.read_xlsx(file_path)
-        elif ext in ["json", "jsonl"]:
-            table = db.read_json(file_path)
-        else:
-            table = db.read_csv(file_path, table_name=table_name)
-        db.create_table(table_name, table, overwrite=True)
-    except Exception as e:
-        frappe.log_error(e)
-        if ext in ["xlsx"]:
-            frappe.throw(
-                "Failed to read Excel data from uploaded file. Please ensure the file is a valid Excel format and try again."
-            )
-        elif ext in ["json", "jsonl"]:
-            frappe.throw(
-                "Failed to read JSON data from uploaded file. Please ensure the file is a valid JSON or JSONL format and try again."
-            )
-        else:
-            frappe.throw("Failed to read CSV data from uploaded file. Please try again.")
-    finally:
-        db.disconnect()
+    with ds.write_connection() as db:
+        try:
+            table = _read_uploaded_table(db, file_path, ext)
+            db.create_table(table_name, table, overwrite=True)
+        except frappe.ValidationError:
+            raise
+        except Exception as e:
+            frappe.log_error(e)
+            frappe.throw("Failed to import uploaded file data into Insights uploads table. Please try again.")
 
     InsightsTablev3.bulk_create(ds.name, [table_name])
 
 
-@frappe.whitelist(allow_guest=True)
-@validate_type
+def _read_uploaded_table(db, file_path: str, ext: str):
+    try:
+        if ext == "xlsx":
+            return db.read_xlsx(file_path)
+
+        if ext in ["json", "jsonl"]:
+            return db.read_json(file_path)
+
+        return db.read_csv(file_path)
+
+    except Exception as e:
+        frappe.log_error(e)
+
+        if ext == "xlsx":
+            frappe.throw(
+                "Failed to read Excel data from uploaded file. Please ensure the file is a valid Excel format and try again."
+            )
+
+        if ext in ["json", "jsonl"]:
+            frappe.throw(
+                "Failed to read JSON data from uploaded file. Please ensure the file is a valid JSON or JSONL format and try again."
+            )
+
+        frappe.throw("Failed to read CSV data from uploaded file. Please try again.")
+
+
+@frappe.whitelist(allow_guest=True)  # nosemgrep - falls back to is_public() only after the
+# framework has already refused the caller
 def get_doc(doctype: str, name: str | int):
     try:
         from frappe.client import get as _get_doc
@@ -201,7 +202,12 @@ def get_doc(doctype: str, name: str | int):
     except frappe.PermissionError:
         if not is_public(doctype, name):
             raise
-        return frappe.get_doc(doctype, name).as_dict()
+        doc = frappe.get_doc(doctype, name)
+        # the framework's own read path drops permlevel fields, and this branch
+        # goes around it. `permission_user` names a real person, so a public
+        # document must not carry it out to the internet.
+        doc.apply_fieldlevel_read_permissions()
+        return doc.as_dict()
 
 
 def _execute_doc_method(doc, method: str, args: dict | None = None, ignore_permissions=False):
@@ -214,7 +220,7 @@ def _execute_doc_method(doc, method: str, args: dict | None = None, ignore_permi
         is_whitelisted(fn)
         is_valid_http_method(fn)
 
-    new_kwargs = frappe.get_newargs(fn, args)
+    new_kwargs = frappe.get_newargs(fn, args or {})
     response = doc.run_method(method, **new_kwargs)
     frappe.response.docs.append(doc)
     frappe.response["message"] = response
@@ -222,16 +228,34 @@ def _execute_doc_method(doc, method: str, args: dict | None = None, ignore_permi
     return response
 
 
-@frappe.whitelist(allow_guest=True)
+def check_stored_document(doctype: str, name: str):
+    """Decide access against the stored document, not the caller's copy of it.
+
+    A method runs on a document built from the request body, so every field the
+    permission rules read is whatever the caller sent. A name with no row behind
+    it is a document the client has not saved, and discloses nothing.
+    """
+    if not frappe.db.exists(doctype, name):
+        return
+
+    if not frappe.has_permission(doctype, ptype="read", doc=name):
+        raise frappe.PermissionError("You don't have permission to access this document")
+
+
+@frappe.whitelist(allow_guest=True)  # nosemgrep - guests reach only public documents, and only
+# the methods and arguments PUBLIC_METHOD_ARGS names
 def run_doc_method(method: str, docs: dict | str, args: dict | None = None):
     doc = frappe.parse_json(docs)
     doctype = doc.get("doctype")
     name = doc.get("name")
 
-    if not doctype or not name:
+    # a name is one document's identity. A dict is a filter set to `frappe.db`,
+    # so it is not a name.
+    if not doctype or not name or not isinstance(name, str):
         raise frappe.ValidationError("Invalid document")
 
     try:
+        check_stored_document(doctype, name)
         docs = frappe.parse_json(docs)
         doc = frappe.get_doc(docs)
         return _execute_doc_method(doc, method, args)
@@ -242,21 +266,42 @@ def run_doc_method(method: str, docs: dict | str, args: dict | None = None):
         if not is_public_method(doctype, method):
             raise frappe.PermissionError("You don't have permission to access this method")
 
+        # the caller is a Guest with no permissions of its own, so the rows come
+        # back filtered by the user the publisher recorded - not unfiltered.
         doc = frappe.get_doc(doctype, name)
-        frappe.flags.insights_for_public_access = True
-        try:
-            return _execute_doc_method(doc, method, args, ignore_permissions=True)
-        finally:
-            frappe.flags.insights_for_public_access = False
+        with permission_user(get_public_permission_user(doctype, name)):
+            return _execute_doc_method(
+                doc, method, public_method_args(doctype, method, args), ignore_permissions=True
+            )
+
+
+# A public execution runs what the publisher published, so the public surface is
+# a set of parameter names, not a set of method names. The query builder passes
+# its own parameters to these methods - `active_operation_idx` drives the step
+# preview, and reshapes the query - and those are for the builder, not for the
+# published document.
+PUBLIC_METHOD_ARGS = {
+    ("Insights Query v3", "execute"): {"adhoc_filters", "page", "page_size"},
+    ("Insights Query v3", "download_results"): {"format", "adhoc_filters"},
+    ("Insights Dashboard v3", "get_distinct_column_values"): {
+        "query",
+        "column_name",
+        "search_term",
+        "adhoc_filters",
+    },
+    ("Insights Dashboard v3", "track_view"): set(),
+}
 
 
 def is_public_method(doctype: str, method: str):
-    public_methods = {
-        "Insights Query v3": ["execute", "download_results"],
-        "Insights Dashboard v3": ["get_distinct_column_values", "track_view"],
-    }
+    return (doctype, method) in PUBLIC_METHOD_ARGS
 
-    if doctype in public_methods and method in public_methods[doctype]:
-        return True
 
-    return False
+def public_method_args(doctype: str, method: str, args: dict | str | None):
+    """The caller's args, less anything the public contract does not name.
+
+    Dropped rather than refused, so the published document still renders.
+    """
+    allowed = PUBLIC_METHOD_ARGS[(doctype, method)]
+    args = frappe.parse_json(args) or {}
+    return {name: value for name, value in args.items() if name in allowed}

@@ -16,9 +16,10 @@ import {
 	TextCursorInput,
 	XSquareIcon,
 } from 'lucide-vue-next'
+import { pythonLanguage } from '@codemirror/lang-python'
 import { h } from 'vue'
 import { copy } from '../helpers'
-import { FIELDTYPES, GranularityType } from '../helpers/constants'
+import { FIELDTYPES, getDefaultGranularity, GranularityType } from '../helpers/constants'
 import dayjs from '../helpers/dayjs'
 import useSettings from '../settings/settings'
 import {
@@ -63,6 +64,8 @@ import {
 	SourceArgs,
 	SQL,
 	SQLArgs,
+	SQLColumn,
+	SQLColumnArgs,
 	Summarize,
 	SummarizeArgs,
 	Table,
@@ -99,6 +102,16 @@ export const expression = (expression: string): Expression => ({
 	type: 'expression',
 	expression,
 })
+
+// the server's summarize carries a money measure's currency code under this name;
+// `CARRIED_CURRENCY_SUFFIX` in ibis_utils.py must match
+export const currencyColumnName = (measure_name: string) => `${measure_name}__currency`
+
+// `undefined`: the measure names no column. `null`: the row mixes currencies.
+export function getRowCurrency(row: any, measure_name: string): string | null | undefined {
+	const key = currencyColumnName(measure_name)
+	return key in (row || {}) ? (row[key] ?? null) : undefined
+}
 
 // export const window_operation = (options: WindowOperationArgs): WindowOperation => ({
 // 	type: 'window_operation',
@@ -154,6 +167,20 @@ export function getFormattedRows(result: QueryResult, operations: Operation[]) {
 export function getFormattedDate(date: string, granularity: string) {
 	if (!date) return ''
 
+	const isTimeOnlyValue = /^\d{1,2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(date)
+	if (isTimeOnlyValue) {
+		const timeFormats: Record<string, string> = {
+			second: 'h:mm:ss A',
+			minute: 'h:mm A',
+			hour: 'h:00 A',
+		}
+
+		if (!timeFormats[granularity]) return date
+
+		const parsed = dayjs(date, ['HH:mm:ss.SSSSSS', 'HH:mm:ss', 'HH:mm'], true)
+		return parsed.isValid() ? parsed.format(timeFormats[granularity]) : date
+	}
+
 	if (granularity === 'fiscal_year') {
 		const d = dayjs(date)
 		const fiscalYearStart = session.user.fiscal_year_start
@@ -206,11 +233,10 @@ export function getDimensions(columns: QueryResultColumn[]): Dimension[] {
 }
 
 export function makeDimension(column: QueryResultColumn): Dimension {
-	const isDate = FIELDTYPES.DATE.includes(column.type)
 	return {
 		column_name: column.name,
 		data_type: column.type as DimensionDataType,
-		granularity: isDate ? 'month' : undefined,
+		granularity: getDefaultGranularity(column.type),
 		dimension_name: column.name,
 	}
 }
@@ -221,7 +247,7 @@ export const query_operation_types = {
 		type: 'source',
 		icon: DatabaseZap,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: SourceArgs): Source => ({ type: 'source', ...args }),
 		getDescription: (op: Source) => {
 			return op.table.type == 'table' ? `${op.table.table_name}` : `${op.table.query_name}`
@@ -232,7 +258,7 @@ export const query_operation_types = {
 		type: 'join',
 		icon: h(BlendIcon, { class: '-rotate-45' }),
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: JoinArgs): Join => ({ type: 'join', ...args }),
 		getDescription: (op: Join) => {
 			return op.table.type == 'table' ? `${op.table.table_name}` : `${op.table.query_name}`
@@ -243,7 +269,7 @@ export const query_operation_types = {
 		type: 'union',
 		icon: BetweenHorizonalStart,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: UnionArgs): Union => ({ type: 'union', ...args }),
 		getDescription: (op: Union) => {
 			return op.table.type == 'table' ? `${op.table.table_name}` : `${op.table.query_name}`
@@ -254,7 +280,7 @@ export const query_operation_types = {
 		type: 'select',
 		icon: ColumnsIcon,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: SelectArgs): Select => ({ type: 'select', ...args }),
 		getDescription: (op: Select) => {
 			return `${op.column_names.length} columns`
@@ -265,7 +291,7 @@ export const query_operation_types = {
 		type: 'remove',
 		icon: XSquareIcon,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: RemoveArgs): Remove => ({ type: 'remove', ...args }),
 		getDescription: (op: Remove) => {
 			if (op.column_names.length < 3) {
@@ -279,7 +305,7 @@ export const query_operation_types = {
 		type: 'rename',
 		icon: TextCursorInput,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: RenameArgs): Rename => ({ type: 'rename', ...args }),
 		getDescription: (op: Rename) => {
 			return `${op.column.column_name} -> ${op.new_name}`
@@ -290,7 +316,7 @@ export const query_operation_types = {
 		type: 'cast',
 		icon: Repeat,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: CastArgs): Cast => ({ type: 'cast', ...args }),
 		getDescription: (op: Cast) => {
 			return `${op.column.column_name} -> ${op.data_type}`
@@ -301,7 +327,7 @@ export const query_operation_types = {
 		type: 'filter',
 		icon: FilterIcon,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: FilterArgs): Filter => ({ type: 'filter', ...args }),
 		getDescription: (op: Filter) => {
 			// @ts-ignore
@@ -315,7 +341,7 @@ export const query_operation_types = {
 		type: 'filter_group',
 		icon: FilterIcon,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: FilterGroupArgs): FilterGroup => ({ type: 'filter_group', ...args }),
 		getDescription: (op: FilterGroup) => {
 			if (!op.filters.length) return __('empty')
@@ -332,9 +358,21 @@ export const query_operation_types = {
 		type: 'mutate',
 		icon: FunctionSquare,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: MutateArgs): Mutate => ({ type: 'mutate', ...args }),
 		getDescription: (op: Mutate) => {
+			return `${op.new_name}`
+		},
+	},
+	// No popover entry: the v2 migrator is the only writer.
+	sql_column: {
+		label: __('SQL column (from v2)'),
+		type: 'sql_column',
+		icon: ScrollText,
+		color: 'gray',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
+		init: (args: SQLColumnArgs): SQLColumn => ({ type: 'sql_column', ...args }),
+		getDescription: (op: SQLColumn) => {
 			return `${op.new_name}`
 		},
 	},
@@ -343,7 +381,7 @@ export const query_operation_types = {
 		type: 'summarize',
 		icon: Combine,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: SummarizeArgs): Summarize => ({ type: 'summarize', ...args }),
 		getDescription: (op: Summarize) => {
 			const measures = op.measures.map((m) => m.measure_name).join(', ')
@@ -356,7 +394,7 @@ export const query_operation_types = {
 		type: 'pivot_wider',
 		icon: GitBranch,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: PivotWiderArgs): PivotWider => ({ type: 'pivot_wider', ...args }),
 		getDescription: (op: PivotWider) => {
 			return __('Pivot Wider')
@@ -367,7 +405,7 @@ export const query_operation_types = {
 		type: 'order_by',
 		icon: ArrowUpDown,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: OrderByArgs): OrderBy => ({ type: 'order_by', ...args }),
 		getDescription: (op: OrderBy) => {
 			return `${op.column.column_name} ${op.direction}`
@@ -378,7 +416,7 @@ export const query_operation_types = {
 		type: 'limit',
 		icon: Indent,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (limit: number): Limit => ({ type: 'limit', limit }),
 		getDescription: (op: Limit) => {
 			return `${op.limit}`
@@ -389,7 +427,7 @@ export const query_operation_types = {
 		type: 'custom_operation',
 		icon: Braces,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: CustomOperationArgs): CustomOperation => ({
 			type: 'custom_operation',
 			...args,
@@ -403,7 +441,7 @@ export const query_operation_types = {
 		type: 'sql',
 		icon: ScrollText,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: SQLArgs): SQL => ({ type: 'sql', ...args }),
 		getDescription: (op: SQL) => {
 			return __('SQL')
@@ -414,7 +452,7 @@ export const query_operation_types = {
 		type: 'code',
 		icon: Braces,
 		color: 'gray',
-		class: 'text-gray-600 bg-gray-100',
+		class: 'text-ink-gray-5 bg-surface-gray-2',
 		init: (args: CodeArgs): Code => ({ type: 'code', ...args }),
 		getDescription: (op: Code) => {
 			return __('Code')
@@ -432,6 +470,7 @@ export const cast = query_operation_types.cast.init
 export const filter = query_operation_types.filter.init
 export const filter_group = query_operation_types.filter_group.init
 export const mutate = query_operation_types.mutate.init
+export const sql_column = query_operation_types.sql_column.init
 export const summarize = query_operation_types.summarize.init
 export const pivot_wider = query_operation_types.pivot_wider.init
 export const order_by = query_operation_types.order_by.init
@@ -494,4 +533,120 @@ export function matchesFilter(value: any, parsed: ParsedFilter): boolean {
 	return String(value ?? '')
 		.toLowerCase()
 		.includes(parsed.text.toLowerCase())
+}
+
+// Where the boolean gate sits in an aggregate's positional arguments.
+// Mirrors the signatures in ibis/functions.py.
+const CONDITION_ARGUMENT: Record<string, number> = {
+	count_if: 0,
+	sum_if: 0,
+	distinct_count_if: 0,
+	count: 1,
+	sum: 1,
+	avg: 1,
+	median: 1,
+	min: 1,
+	max: 1,
+	distinct_count: 1,
+	group_concat: 2,
+}
+
+type CallArgument = { name?: string; value: string }
+type ParsedCall = { name: string; args: CallArgument[] }
+
+/**
+ * Parses `name(arg, name=arg, ...)` into its name and arguments.
+ * Returns null if the expression is not a single well-formed call.
+ *
+ * Expressions are Python, and the editor already parses them with this
+ * grammar — see components/Code.vue.
+ */
+function parseCall(source: string): ParsedCall | null {
+	const tree = pythonLanguage.parser.parse(source)
+
+	let hasError = false
+	tree.iterate({
+		enter: (node) => {
+			if (node.type.isError) hasError = true
+		},
+	})
+	if (hasError) return null
+
+	const statement = tree.topNode.firstChild
+	if (!statement || statement.nextSibling || statement.name !== 'ExpressionStatement') return null
+
+	const call = statement.firstChild
+	if (!call || call.name !== 'CallExpression' || call.to !== statement.to) return null
+
+	const callee = call.firstChild
+	const argList = call.getChild('ArgList')
+	if (!callee || callee.name !== 'VariableName' || !argList) return null
+
+	const args: CallArgument[] = []
+	// @lezer/common is only a transitive dependency, so derive its node type here
+	let segment: NonNullable<typeof argList.firstChild>[] = []
+
+	const pushSegment = () => {
+		if (!segment.length) return
+		const last = segment[segment.length - 1]
+		if (segment.length >= 3 && segment[1].name === 'AssignOp') {
+			args.push({
+				name: source.slice(segment[0].from, segment[0].to),
+				value: source.slice(segment[2].from, last.to),
+			})
+		} else {
+			args.push({ value: source.slice(segment[0].from, last.to) })
+		}
+		segment = []
+	}
+
+	for (let child = argList.firstChild; child; child = child.nextSibling) {
+		// the call's own delimiters, not part of any argument
+		if (child.name === '(' || child.name === ')') continue
+		if (child.name === ',') pushSegment()
+		else segment.push(child)
+	}
+	pushSegment()
+
+	return { name: source.slice(callee.from, callee.to), args }
+}
+
+/**
+ * Returns the boolean conditions that gate an aggregate expression, so a
+ * drill-down can reproduce them as filters.
+ *
+ * A gate reaches an aggregate two ways, and both can appear at once:
+ * - as the `where` argument, by position or by keyword —
+ *   `sum(amount, status == 'Active')`, `count_if(status == 'Active', id)`
+ * - as a `one_if` over the aggregated column — `sum(one_if(cond))`
+ *
+ * Returns nothing for a window aggregate. It reads rows outside the gate,
+ * so a row filter does not reproduce it.
+ */
+export function getAggregateConditions(source: string): string[] {
+	const call = parseCall(source)
+	if (!call) return []
+
+	const gateIndex = CONDITION_ARGUMENT[call.name]
+	if (gateIndex === undefined) return []
+
+	// only group_by makes it a window — order_by alone does not
+	if (call.args.some((arg) => arg.name === 'group_by')) return []
+
+	const positional = call.args.filter((arg) => !arg.name)
+	const conditions: string[] = []
+
+	const keyword = call.args.find((arg) => arg.name === 'where')
+	const gate = keyword ? keyword.value : positional[gateIndex]?.value
+	if (gate) conditions.push(gate)
+
+	// the aggregated column is the argument before the gate
+	if (gateIndex > 0) {
+		const inner = positional[0] ? parseCall(positional[0].value) : null
+		if (inner?.name === 'one_if' && inner.args[0]) {
+			conditions.push(inner.args[0].value)
+		}
+	}
+
+	return conditions
 }

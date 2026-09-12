@@ -66,7 +66,7 @@ const fields = [
 		placeholder: '**********',
 		required: true,
 	},
-	{ label: __('Use secure connection (SSL)?'), name: 'use_ssl', type: 'checkbox' },
+	{ label: __('Encrypt connection (SSL)'), name: 'use_ssl', type: 'checkbox' },
 ]
 
 const sources = useDataSourceStore()
@@ -117,8 +117,8 @@ const submitButton = computed(() => {
 </script>
 
 <template>
-	<Dialog v-model="show" :options="{ title: __('Connect to ClickHouse') }">
-		<template #body-content>
+	<Dialog v-model:open="show" :title="__('Connect to ClickHouse')">
+		<template #default>
 			<Form
 				ref="form"
 				class="flex-1"

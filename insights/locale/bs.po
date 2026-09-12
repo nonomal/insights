@@ -2,8 +2,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: frappe\n"
 "Report-Msgid-Bugs-To: hello@frappe.io\n"
-"POT-Creation-Date: 2026-04-05 09:45+0000\n"
-"PO-Revision-Date: 2026-04-06 17:32\n"
+"POT-Creation-Date: 2026-06-21 10:42+0000\n"
+"PO-Revision-Date: 2026-09-07 08:43\n"
 "Last-Translator: hello@frappe.io\n"
 "Language-Team: Bosnian\n"
 "MIME-Version: 1.0\n"
@@ -27,6 +27,10 @@ msgstr "1:1"
 #: insights/insights/doctype/insights_table_link/insights_table_link.json
 msgid "1:N"
 msgstr "1:N"
+
+#: insights/insights/doctype/insights_workbook_folder/insights_workbook_folder.py:35
+msgid "A folder cannot be its own parent"
+msgstr "Mapu ne može biti njen vlastiti nadređeni"
 
 #. Label of the api_configuration_section (Section Break) field in DocType
 #. 'Insights Data Source v3'
@@ -71,10 +75,6 @@ msgstr "Prihvaćeno"
 msgid "Accepted At"
 msgstr "Prihvaćen"
 
-#: frontend/src2/workbook/WorkbookList.vue:47
-msgid "Access"
-msgstr "Pristup"
-
 #: frontend/src2/settings/Settings.vue:10
 msgid "Account"
 msgstr "Račun"
@@ -112,16 +112,21 @@ msgstr "Dodaj novu kolonu"
 
 #: frontend/src2/query/components/AddOperationPopover.vue:132
 msgid "Add Operation"
-msgstr "Dodaj operaciju"
+msgstr "Dodaj radnju"
 
 #: frontend/src2/query/components/AddOperationPopover.vue:63
 msgid "Add a new column based on existing columns"
-msgstr "Dodajte novu kolonu na osnovu postojećih kolona"
+msgstr "Dodaj novu kolonu na osnovu postojećih kolona"
 
 #: frontend/src2/query/components/ColumnsSelectorDialog.vue:83
 #: frontend/src2/query/components/ColumnsSelectorDialog.vue:92
 msgid "Add column"
 msgstr "Dodaj Kolonu"
+
+#. Name of a role
+#: insights/insights/doctype/insights_query_reference/insights_query_reference.json
+msgid "Administrator"
+msgstr "Administrator"
 
 #. Label of the aggregation (Data) field in DocType 'Insights Query Column'
 #: insights/insights/doctype/insights_query_column/insights_query_column.json
@@ -136,7 +141,7 @@ msgstr "Uslov Agregacije"
 
 #: frontend/src2/query/components/AlertSetupDialog.vue:70
 msgid "Alert Created"
-msgstr "Obavještenje kreirano"
+msgstr "Obavještenje izrađeno"
 
 #: frontend/src2/query/components/AlertSetupDialog.vue:98
 msgid "Alert Disabled"
@@ -166,6 +171,16 @@ msgstr "Obavještenje poslano"
 msgid "Alerts"
 msgstr "Obavještenja"
 
+#: frontend/src2/dashboard/DashboardList.vue:26
+#: frontend/src2/workbook/WorkbookList.vue:43
+msgid "All"
+msgstr "Svi"
+
+#. Label of the allow_download (Check) field in DocType 'Insights Settings'
+#: insights/insights/doctype/insights_settings/insights_settings.json
+msgid "Allow Data Download"
+msgstr "Dozvoli Preuzimanje Podataka"
+
 #. Label of the allow_subquery (Check) field in DocType 'Insights Settings'
 #: insights/insights/doctype/insights_settings/insights_settings.json
 msgid "Allow Subquery"
@@ -180,10 +195,6 @@ msgstr "Dozvoli Uvoz Tabele"
 #: insights/insights/doctype/insights_settings/insights_settings.json
 msgid "Allowed Origins"
 msgstr "Dozvoljena Porijekla"
-
-#: frontend/src2/charts/components/FunnelChartConfigForm.vue:58
-msgid "Alternate"
-msgstr "Alternativni"
 
 #: frontend/src2/query/components/FormatRule.vue:161
 msgid "Amber"
@@ -208,6 +219,11 @@ msgstr "Svi koji imaju link mogu vidjeti"
 msgid "Append"
 msgstr "Dodaj"
 
+#. Option for the 'Sync Strategy' (Select) field in DocType 'Insights Table v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.json
+msgid "Append Only"
+msgstr "Samo Dodaj"
+
 #: frontend/src2/query/components/UnionSelectorDialog.vue:116
 msgid "Append Rows"
 msgstr "Dodaj Redove"
@@ -218,7 +234,7 @@ msgstr "Dodaj Tabelu"
 
 #: frontend/src2/query/components/AddOperationPopover.vue:57
 msgid "Append this table with another table or query"
-msgstr "Dodajte ovu tabelu drugoj tabeli ili upitu"
+msgstr "Dodaj ovu tabelu drugoj tabeli ili upitu"
 
 #: frontend/src2/query/components/FiltersSelector.vue:145
 msgid "Apply Filters"
@@ -232,7 +248,7 @@ msgstr "Primijeni Korisničke Dozvole"
 
 #: frontend/src2/query/components/AddOperationPopover.vue:81
 msgid "Apply a custom operation using python script"
-msgstr "Primijenite prilagođenu operaciju pomoću Python skripte"
+msgstr "Primijenite prilagođenu radnju pomoću Python skripte"
 
 #: frontend/src2/components/UserDropdown.vue:131
 msgid "Are you sure you want to log out?"
@@ -259,7 +275,7 @@ msgstr "Automatsi izvrši Upit"
 msgid "Automatically arrange cards vertically to fill empty spaces"
 msgstr "Automatski rasporedite kartice vertikalno kako biste popunili prazna mjesta"
 
-#: frontend/src2/charts/components/MeasurePicker.vue:128
+#: frontend/src2/charts/components/MeasurePicker.vue:138
 msgid "Average of..."
 msgstr "Prosjek..."
 
@@ -368,13 +384,17 @@ msgstr "Može Prikazati"
 #: frontend/src2/charts/components/RegionMappingDialog.vue:312
 #: frontend/src2/components/ExportDialog.vue:77
 #: frontend/src2/dashboard/DashboardChartSelectorDialog.vue:73
-#: frontend/src2/dashboard/DashboardFilterEditor.vue:161
+#: frontend/src2/dashboard/DashboardFilterEditor.vue:163
 #: frontend/src2/dashboard/DashboardText.vue:37
 #: frontend/src2/query/components/ColumnsSelectorDialog.vue:71
 #: frontend/src2/query/components/JoinSelectorDialog.vue:384
 #: frontend/src2/query/components/UnionSelectorDialog.vue:152
 msgid "Cancel"
 msgstr "Otkaži"
+
+#: insights/api/workbooks.py:426
+msgid "Cannot delete a folder that is not empty. Move its contents out first."
+msgstr "Ne možete obrisati mapu koja nije prazna. Prvo premjestite njen sadržaj."
 
 #. Label of the cardinality (Select) field in DocType 'Insights Table Link'
 #: insights/insights/doctype/insights_table_link/insights_table_link.json
@@ -389,6 +409,7 @@ msgstr "Kanal"
 
 #. Label of the chart (Link) field in DocType 'Insights Dashboard Chart v3'
 #. Label of the chart (Link) field in DocType 'Insights Query'
+#: frontend/src2/workbook/WorkbookLineageDialog.vue:213
 #: insights/insights/doctype/insights_dashboard_chart_v3/insights_dashboard_chart_v3.json
 #: insights/insights/doctype/insights_query/insights_query.json
 msgid "Chart"
@@ -425,10 +446,24 @@ msgstr "Provjeravaj jednom na sat"
 msgid "Choose Columns"
 msgstr "Odaberi Kolone"
 
-#: frontend/src2/dashboard/DashboardFilterEditor.vue:241
+#. Description of the 'Sync Strategy' (Select) field in DocType 'Insights Table
+#. v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.json
+msgid "Choose how incremental sync writes rows: <b>Append Only</b> adds new rows, while <b>Update or Insert</b> updates matching keys and inserts new rows."
+msgstr "Odaberi kako inkrementalna sinhronizacija zapisuje redove: <b>Samo Dodaj</b> dodaje nove redove, dok <b>Ažuriraj ili Ubaci</b> ažurira odgovarajuće ključeve i ubacuje nove redove."
+
+#: insights/insights/doctype/insights_data_source_v3/ibis_utils.py:96
+msgid "Circular query reference detected while building \"{0}\""
+msgstr "Otkrivena je kružna referenca upita prilikom izgradnje \"{0}\""
+
+#: frontend/src2/dashboard/DashboardFilterEditor.vue:243
 #: frontend/src2/query/components/FiltersSelector.vue:143
 msgid "Clear"
 msgstr "Očisti"
+
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:13
+msgid "Clear Warehouse Data"
+msgstr "Obriši Podatke Skladišta"
 
 #. Option for the 'Database Type' (Select) field in DocType 'Insights Data
 #. Source v3'
@@ -438,6 +473,7 @@ msgid "ClickHouse"
 msgstr "ClickHouse"
 
 #: frontend/src2/query/components/source_selector/SourceSelectorDialog.vue:130
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:95
 msgid "Close"
 msgstr "Zatvori"
 
@@ -480,7 +516,7 @@ msgstr "Kolone"
 msgid "Comma seperated URLs to whitelist for embedding charts & dashboards"
 msgstr "URL-ovi odvojeni zarezima za bijelu listu za ugrađivanje grafikona i kontrolnih ploča"
 
-#: frontend/src2/dashboard/DashboardBuilder.vue:151
+#: frontend/src2/dashboard/DashboardBuilder.vue:163
 msgid "Compact Layout"
 msgstr "Kompaktni Raspored"
 
@@ -499,7 +535,7 @@ msgstr "Uslov"
 
 #. Label of the config (JSON) field in DocType 'Insights Chart v3'
 #. Label of the config (JSON) field in DocType 'Insights Query Chart'
-#: frontend/src2/dashboard/DashboardFilterEditor.vue:32
+#: frontend/src2/dashboard/DashboardFilterEditor.vue:33
 #: insights/insights/doctype/insights_chart_v3/insights_chart_v3.json
 #: insights/insights/doctype/insights_query_chart/insights_query_chart.json
 msgid "Config"
@@ -577,48 +613,46 @@ msgstr "Nastavi"
 msgid "Convert to Expression"
 msgstr "Pretvori u Izraz"
 
-#: frontend/src2/charts/components/ChartBuilderToolbar.vue:50
-#: frontend/src2/workbook/WorkbookNavbarActions.vue:59
+#: frontend/src2/charts/components/ChartBuilderToolbar.vue:60
+#: frontend/src2/workbook/WorkbookNavbarActions.vue:66
 msgid "Copy JSON"
 msgstr "Kopiraj JSON"
 
-#: frontend/src2/query/components/QueryBuilderToolbar.vue:37
+#: frontend/src2/query/components/QueryToolbar.vue:50
 msgid "Copy Query"
 msgstr "Kopiraj Upit"
 
-#: frontend/src2/charts/components/MeasurePicker.vue:126
+#: frontend/src2/charts/components/MeasurePicker.vue:136
 msgid "Count of..."
 msgstr "Broj..."
 
 #: frontend/src2/teams/CreateTeamDialog.vue:18
 msgid "Create"
-msgstr "Kreiraj"
+msgstr "Izradi"
 
 #: frontend/src2/query/components/AlertSetupDialog.vue:129
 msgid "Create Alert"
-msgstr "Kreiraj Upozorenje"
+msgstr "Izradi Upozorenje"
 
 #: frontend/src2/charts/components/NewMeasureSelectorDialog.vue:97
 msgid "Create Measure"
-msgstr "Kreiraj Mjeru"
+msgstr "Izradi Mjeru"
 
 #: frontend/src2/settings/PermissionsSettings.vue:67
 #: frontend/src2/teams/CreateTeamDialog.vue:15
 #: frontend/src2/teams/TeamList.vue:65
 msgid "Create Team"
-msgstr "Kreiraj Tim"
+msgstr "Izradi Tim"
 
-#: frontend/src2/dashboard/DashboardList.vue:96
-msgid "Create a dashboard in your workbook to view it here."
-msgstr "Kreiraj nadzornu tablu u radnoj svesci da biste je ovdje vidjeli."
-
+#: frontend/src2/dashboard/DashboardList.vue:29
 #: frontend/src2/data_source/DataSourceList.vue:119
+#: frontend/src2/workbook/WorkbookList.vue:44
 msgid "Created"
-msgstr "Kreirano"
+msgstr "Izrađeno"
 
 #: frontend/src2/query/components/QueryAlertsDialog.vue:52
 msgid "Created By"
-msgstr "Kreirano Od"
+msgstr "Izrađeno Od"
 
 #: frontend/src2/teams/TeamList.vue:48
 msgid "Creation"
@@ -647,10 +681,15 @@ msgstr "Cron izraz za zakazivanje skripte. Napomena: Planer provjerava poslove s
 msgid "CumulativeSum"
 msgstr "KumulativniZbir"
 
+#. Label of the sync_cursor_column (Data) field in DocType 'Insights Table v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.json
+msgid "Cursor Column"
+msgstr "Kolona Kursora"
+
 #. Label of the custom_condition (Check) field in DocType 'Insights Alert'
 #: insights/insights/doctype/insights_alert/insights_alert.json
 msgid "Custom Condition"
-msgstr "Prilagođeni Uvjet"
+msgstr "Prilagođeni Uslov"
 
 #. Label of the api_custom_headers (JSON) field in DocType 'Insights Data
 #. Source v3'
@@ -664,7 +703,7 @@ msgstr "Prilagođeni Uslov Spajanja"
 
 #: frontend/src2/query/components/AddOperationPopover.vue:80
 msgid "Custom Operation"
-msgstr "Prilagođena Operacija"
+msgstr "Prilagođena Radnji"
 
 #. Description of the 'Custom Headers' (JSON) field in DocType 'Insights Data
 #. Source v3'
@@ -683,9 +722,18 @@ msgstr "Pristup kontrolnoj tabli je ažuriran"
 
 #: frontend/src2/components/AppSidebar.vue:74
 #: frontend/src2/dashboard/Dashboard.vue:46
+#: frontend/src2/dashboard/DashboardList.vue:21
 #: frontend/src2/workbook/WorkbookSidebar.vue:75
 msgid "Dashboards"
 msgstr "Nadzorne Table"
+
+#: frontend/src2/dashboard/DashboardList.vue:93
+msgid "Dashboards shared with you will show up here."
+msgstr "Nadzorne Table koje su podijeljene s vama će se prikazati ovdje."
+
+#: frontend/src2/dashboard/DashboardList.vue:83
+msgid "Dashboards you open will show up here."
+msgstr "Nadzorne Table koje otvorite prikazat će se ovdje."
 
 #. Label of the data_backup (JSON) field in DocType 'Insights Workbook'
 #: insights/insights/doctype/insights_workbook/insights_workbook.json
@@ -700,6 +748,7 @@ msgstr "Upit Podataka"
 #. Label of the data_source (Link) field in DocType 'Insights Query'
 #. Label of the data_source (Data) field in DocType 'Insights Query Execution
 #. Log'
+#. Label of the data_source (Data) field in DocType 'Insights Query Reference'
 #. Label of the data_source (Link) field in DocType 'Insights Table'
 #. Label of the data_source (Link) field in DocType 'Insights Table Import'
 #. Label of the data_source (Link) field in DocType 'Insights Table Import Job'
@@ -710,6 +759,7 @@ msgstr "Upit Podataka"
 #: frontend/src2/query/components/source_selector/DataSourceTableList.vue:34
 #: insights/insights/doctype/insights_query/insights_query.json
 #: insights/insights/doctype/insights_query_execution_log/insights_query_execution_log.json
+#: insights/insights/doctype/insights_query_reference/insights_query_reference.json
 #: insights/insights/doctype/insights_table/insights_table.json
 #: insights/insights/doctype/insights_table_import/insights_table_import.json
 #: insights/insights/doctype/insights_table_import_job/insights_table_import_job.json
@@ -730,9 +780,12 @@ msgstr "Izvor Podataka"
 msgid "Data Sources | Insights"
 msgstr "Izvori Podataka | Uvidi"
 
+#. Label of the data_store (Check) field in DocType 'Insights Query Execution
+#. Log'
 #: frontend/src2/components/AppSidebar.vue:89
 #: frontend/src2/data_store/DataStoreList.vue:75
 #: frontend/src2/settings/Settings.vue:43
+#: insights/insights/doctype/insights_query_execution_log/insights_query_execution_log.json
 msgid "Data Store"
 msgstr "Pohrana Podataka"
 
@@ -782,14 +835,15 @@ msgstr "Datum i Vrijeme"
 msgid "Decimal"
 msgstr "Decimalno"
 
-#: frontend/src2/dashboard/DashboardFilterEditor.vue:234
+#: frontend/src2/dashboard/DashboardFilterEditor.vue:236
 msgid "Default Value"
 msgstr "Standard Vrijednost"
 
 #: frontend/src2/dashboard/DashboardItemActions.vue:19
-#: frontend/src2/workbook/WorkbookNavbarActions.vue:65
+#: frontend/src2/teams/ManageTeamDialog.vue:80
+#: frontend/src2/workbook/WorkbookNavbarActions.vue:72
 msgid "Delete"
-msgstr "Izbriši"
+msgstr "Obriši"
 
 #: frontend/src2/components/DemoDataBanner.vue:26
 #: frontend/src2/settings/GeneralSettings.vue:22
@@ -816,7 +870,7 @@ msgstr "Dokumentacija"
 
 #: frontend/src2/charts/components/ChartShareDialog.vue:38
 #: frontend/src2/dashboard/DashboardShareDialog.vue:86
-#: frontend/src2/teams/ManageTeamDialog.vue:66
+#: frontend/src2/teams/ManageTeamDialog.vue:67
 msgid "Done"
 msgstr "Gotovo"
 
@@ -825,7 +879,7 @@ msgstr "Gotovo"
 msgid "Draft"
 msgstr "Nacrt"
 
-#: frontend/src2/charts/components/DrillDown.vue:59
+#: frontend/src2/charts/components/DrillDown.vue:60
 msgid "Drill Down"
 msgstr "Detaljni Prikaz"
 
@@ -841,17 +895,17 @@ msgid "DuckDB"
 msgstr "DuckDB"
 
 #: frontend/src2/query/components/FiltersSelector.vue:120
-#: frontend/src2/workbook/WorkbookNavbarActions.vue:53
+#: frontend/src2/workbook/WorkbookNavbarActions.vue:60
 msgid "Duplicate"
 msgstr "Kopiraj"
 
-#: frontend/src2/charts/components/ChartBuilderToolbar.vue:39
+#: frontend/src2/charts/components/ChartBuilderToolbar.vue:44
 msgid "Duplicate Chart"
-msgstr "Dupliciraj Grafikon"
+msgstr "Dupliraj Grafikon"
 
-#: frontend/src2/query/components/QueryBuilderToolbar.vue:32
+#: frontend/src2/query/components/QueryToolbar.vue:45
 msgid "Duplicate Query"
-msgstr "Dupliciraj Upit"
+msgstr "Dupliraj Upit"
 
 #. Label of the time_taken (Int) field in DocType 'Insights Table Import Log'
 #: insights/insights/doctype/insights_table_import_log/insights_table_import_log.json
@@ -862,7 +916,7 @@ msgstr "Trajanje (Sekunde)"
 msgid "Edit"
 msgstr "Uredi"
 
-#: frontend/src2/dashboard/DashboardFilterEditor.vue:152
+#: frontend/src2/dashboard/DashboardFilterEditor.vue:154
 msgid "Edit Filter"
 msgstr "Uredi Filter"
 
@@ -889,6 +943,10 @@ msgstr "E-pošta poslana u"
 #: frontend/src2/query/components/FiltersSelector.vue:134
 msgid "Empty - Click 'Add Filter' to add a filter"
 msgstr "Prazno - Kliknite na 'Dodaj filter' da biste dodali filter"
+
+#: frontend/src2/workbook/WorkbookList.vue:160
+msgid "Empty Folder"
+msgstr "Prazna mapa"
 
 #: frontend/src2/query/components/AlertSetupDialog.vue:123
 msgid "Enable Alert"
@@ -930,9 +988,9 @@ msgstr "Stavi u red"
 
 #: frontend/src2/components/ExportDialog.vue:60
 msgid "Enter filename"
-msgstr "Unesite naziv datoteke"
+msgstr "Unesi naziv datoteke"
 
-#: frontend/src2/dashboard/DashboardFilterEditor.vue:177
+#: frontend/src2/dashboard/DashboardFilterEditor.vue:179
 msgid "Enter filter label..."
 msgstr "Unesi oznaku filtera..."
 
@@ -959,10 +1017,17 @@ msgstr "Grеška"
 msgid "Excel"
 msgstr "Excel"
 
-#: frontend/src2/query/components/NativeQueryEditor.vue:134
-#: frontend/src2/query/components/QueryBuilderToolbar.vue:69
+#: frontend/src2/query/components/QueryToolbar.vue:69
 msgid "Execute"
 msgstr "Izvrši"
+
+#: frontend/src2/query/components/QueryToolbar.vue:68
+msgid "Execute ({0})"
+msgstr "Izvrši ({0})"
+
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:80
+msgid "Execution Count"
+msgstr "Broj Izvršenja"
 
 #. Option for the 'Status' (Select) field in DocType 'Insights Query'
 #: insights/insights/doctype/insights_query/insights_query.json
@@ -1000,8 +1065,9 @@ msgstr "Izvezi Podatke"
 msgid "Export Format"
 msgstr "Format Izvoza"
 
-#: frontend/src2/charts/components/ChartBuilderToolbar.vue:27
+#: frontend/src2/charts/components/ChartBuilderToolbar.vue:32
 #: frontend/src2/dashboard/Dashboard.vue:61
+#: frontend/src2/dashboard/DashboardBuilder.vue:156
 msgid "Export as PNG"
 msgstr "Izvezi kao PNG"
 
@@ -1024,7 +1090,11 @@ msgstr "Neuspjeh"
 msgid "Failed"
 msgstr "Neuspješno"
 
-#: frontend/src2/query/components/NativeQueryEditor.vue:52
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:73
+msgid "Failed Syncs"
+msgstr "Neuspješne Sinhronizacije"
+
+#: frontend/src2/query/components/NativeQueryEditor.vue:55
 msgid "Failed to format SQL"
 msgstr "Neuspješno formatiranje SQL"
 
@@ -1041,18 +1111,16 @@ msgstr "Neuspješna obrada otpremljene datoteke"
 msgid "Failed to setup demo data"
 msgstr "Postavljanje demo podataka nije uspjelo"
 
-#: frontend/src2/dashboard/DashboardList.vue:61
+#: frontend/src2/dashboard/DashboardList.vue:28
 msgid "Favorites"
 msgstr "Omiljeni"
 
-#: frontend/src2/query/components/NativeQueryEditor.vue:158
-#: frontend/src2/query/components/QueryBuilderToolbar.vue:57
+#: frontend/src2/query/components/QueryExecutionStatus.vue:18
 #: frontend/src2/query/components/ScriptQueryEditor.vue:128
 msgid "Fetched from cache"
 msgstr "Preuzeto iz keš memorije"
 
-#: frontend/src2/query/components/NativeQueryEditor.vue:161
-#: frontend/src2/query/components/QueryBuilderToolbar.vue:60
+#: frontend/src2/query/components/QueryExecutionStatus.vue:21
 #: frontend/src2/query/components/ScriptQueryEditor.vue:129
 msgid "Fetched in {0}s"
 msgstr "Preuzeto za {0}"
@@ -1069,7 +1137,7 @@ msgstr "Naziv datoteke"
 msgid "Filter"
 msgstr "Filter"
 
-#: frontend/src2/dashboard/DashboardFilterEditor.vue:224
+#: frontend/src2/dashboard/DashboardFilterEditor.vue:226
 msgid "Filter Icon"
 msgstr "Filter Ikon"
 
@@ -1091,11 +1159,25 @@ msgstr "Filteri"
 msgid "Fiscal Year Start"
 msgstr "Početak Fiskalne Godine"
 
-#: insights/api/workbooks.py:241
+#. Label of the folder (Link) field in DocType 'Insights Workbook'
+#: frontend/src2/components/FolderCard.vue:24
+#: insights/insights/doctype/insights_workbook/insights_workbook.json
+msgid "Folder"
+msgstr "Mapa"
+
+#: insights/api/workbooks.py:312
 msgid "Folder and item must belong to the same workbook"
 msgstr "Mapa i stavka moraju pripadati istoj radnoj svesci"
 
-#: frontend/src2/dashboard/DashboardBuilder.vue:145
+#: insights/api/workbooks.py:443 insights/api/workbooks.py:456
+msgid "Folder {0} does not exist"
+msgstr "Mapa {0} ne postoji"
+
+#: insights/insights/doctype/insights_workbook_folder/insights_workbook_folder.py:40
+msgid "Folders can only be nested up to {0} levels deep"
+msgstr "Mape je moguće ugnijezditi najviše {0} nivoa duboko"
+
+#: frontend/src2/dashboard/DashboardBuilder.vue:151
 msgid "Force Refresh"
 msgstr "Prisilno Osvježi"
 
@@ -1124,7 +1206,7 @@ msgstr "Oznaka Strane Tabele"
 msgid "Format Option"
 msgstr "Opcija Formata"
 
-#: frontend/src2/query/components/NativeQueryEditor.vue:143
+#: frontend/src2/query/components/NativeQueryEditor.vue:65
 msgid "Format SQL"
 msgstr "Formatiraj SQL"
 
@@ -1143,6 +1225,11 @@ msgstr "Učestalost"
 #: insights/insights/doctype/insights_settings/insights_settings.json
 msgid "Friday"
 msgstr "Petak"
+
+#. Option for the 'Sync Mode' (Select) field in DocType 'Insights Table v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.json
+msgid "Full"
+msgstr "Pun"
 
 #: frontend/src2/settings/Settings.vue:23
 msgid "General"
@@ -1231,11 +1318,11 @@ msgstr "Uvoz Upita"
 msgid "Import Table"
 msgstr "Uvezi Tabelu"
 
-#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:9
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:8
 msgid "Import job has been queued"
 msgstr "Posao Uvoza je stavljen u red čekanja"
 
-#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:7
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:6
 msgid "Import to Warehouse"
 msgstr "Uvezi u Skladište"
 
@@ -1251,6 +1338,11 @@ msgstr "U Toku"
 #: insights/insights/doctype/insights_data_source_v3/insights_data_source_v3.json
 msgid "Inactive"
 msgstr "Neaktivan"
+
+#. Option for the 'Sync Mode' (Select) field in DocType 'Insights Table v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.json
+msgid "Incremental"
+msgstr "Postupno"
 
 #: frontend/src2/charts/components/MapChartConfigForm.vue:55
 msgid "India"
@@ -1272,6 +1364,7 @@ msgstr "Indija"
 #: insights/insights/doctype/insights_team/insights_team.json
 #: insights/insights/doctype/insights_user_invitation/insights_user_invitation.json
 #: insights/insights/doctype/insights_workbook/insights_workbook.json
+#: insights/insights/doctype/insights_workbook_folder/insights_workbook_folder.json
 msgid "Insights Admin"
 msgstr "Administrator"
 
@@ -1354,6 +1447,11 @@ msgstr "Kolona Upita"
 #: insights/insights/doctype/insights_query_execution_log/insights_query_execution_log.json
 msgid "Insights Query Execution Log"
 msgstr "Zapisnik Izvršenja Upita"
+
+#. Name of a DocType
+#: insights/insights/doctype/insights_query_reference/insights_query_reference.json
+msgid "Insights Query Reference"
+msgstr "Referenca Upita"
 
 #. Name of a DocType
 #: insights/insights/doctype/insights_query_result/insights_query_result.json
@@ -1469,6 +1567,7 @@ msgstr "Član Tima"
 #: insights/insights/doctype/insights_team/insights_team.json
 #: insights/insights/doctype/insights_user_invitation/insights_user_invitation.json
 #: insights/insights/doctype/insights_workbook/insights_workbook.json
+#: insights/insights/doctype/insights_workbook_folder/insights_workbook_folder.json
 msgid "Insights User"
 msgstr "Korisnik"
 
@@ -1481,6 +1580,11 @@ msgstr "Pozivnica Korisnika"
 #: insights/insights/doctype/insights_workbook/insights_workbook.json
 msgid "Insights Workbook"
 msgstr "Radna Sveska"
+
+#. Name of a DocType
+#: insights/insights/doctype/insights_workbook_folder/insights_workbook_folder.json
+msgid "Insights Workbook Folder"
+msgstr "Mapa Radne Sveske Uvida"
 
 #. Option for the 'Type' (Select) field in DocType 'Insights Table Column'
 #: insights/insights/doctype/insights_table_column/insights_table_column.json
@@ -1522,7 +1626,7 @@ msgstr "Je Potpomognuti Upit"
 #. Label of the is_builder_query (Check) field in DocType 'Insights Query v3'
 #: insights/insights/doctype/insights_query_v3/insights_query_v3.json
 msgid "Is Builder Query"
-msgstr "Je Builder Upit"
+msgstr "Je Uređivač Upit"
 
 #. Label of the is_ducklake (Check) field in DocType 'Insights Data Source v3'
 #: insights/insights/doctype/insights_data_source_v3/insights_data_source_v3.json
@@ -1570,7 +1674,7 @@ msgstr "Ja Upit Zasnovano"
 #. Label of the is_saved_as_table (Check) field in DocType 'Insights Query'
 #: insights/insights/doctype/insights_query/insights_query.json
 msgid "Is Saved as Table"
-msgstr "Je Sačuvano kao Tabela"
+msgstr "Je Spremljeno kao Tabela"
 
 #. Label of the is_script_query (Check) field in DocType 'Insights Query'
 #. Label of the is_script_query (Check) field in DocType 'Insights Query v3'
@@ -1629,7 +1733,7 @@ msgstr "Ključ"
 #. Label of the label (Data) field in DocType 'Insights Table'
 #. Label of the label (Data) field in DocType 'Insights Table Column'
 #. Label of the label (Data) field in DocType 'Insights Table v3'
-#: frontend/src2/dashboard/DashboardFilterEditor.vue:175
+#: frontend/src2/dashboard/DashboardFilterEditor.vue:177
 #: insights/insights/doctype/insights_query_table/insights_query_table.json
 #: insights/insights/doctype/insights_table/insights_table.json
 #: insights/insights/doctype/insights_table_column/insights_table_column.json
@@ -1643,6 +1747,7 @@ msgstr "Zadnja Aktivnost"
 
 #. Label of the last_execution (Datetime) field in DocType 'Insights Query'
 #: insights/insights/doctype/insights_query/insights_query.json
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:77
 msgid "Last Executed On"
 msgstr "Posljednji put izvršeno"
 
@@ -1651,6 +1756,14 @@ msgstr "Posljednji put izvršeno"
 #: insights/insights/doctype/insights_alert/insights_alert.json
 msgid "Last Execution"
 msgstr "Zadnje Izvršavanje"
+
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:66
+msgid "Last Import Duration"
+msgstr "Vrijeme Posljednjeg Uvoza"
+
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:63
+msgid "Last Import Rows"
+msgstr "Posljednji Uvezeni Redovi"
 
 #. Label of the last_log (Link) field in DocType 'Insights Table Import Job'
 #: insights/insights/doctype/insights_table_import_job/insights_table_import_job.json
@@ -1668,17 +1781,28 @@ msgstr "Zadnje Izvođenje"
 msgid "Last Status"
 msgstr "Posljednji Status"
 
+#. Label of the last_sync_bookmark (Data) field in DocType 'Insights Table v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.json
+msgid "Last Sync Bookmark"
+msgstr "Posljednja Sinhronizacija Oznaka"
+
 #: frontend/src2/data_store/DataStoreList.vue:48
 msgid "Last Synced"
 msgstr "Posljednja sinhronizacija"
 
 #. Label of the last_synced_on (Datetime) field in DocType 'Insights Table v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:60
 #: insights/insights/doctype/insights_table_v3/insights_table_v3.json
 msgid "Last Synced On"
 msgstr "Zadnja Sinhronizacija"
 
+#. Description of the 'Last Sync Bookmark' (Data) field in DocType 'Insights
+#. Table v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.json
+msgid "Last synced cursor value (set automatically)"
+msgstr "Posljednja sinhronizirana vrijednost kursora (automatski postavljena)"
+
 #: frontend/src2/charts/components/DonutChartConfigForm.vue:59
-#: frontend/src2/charts/components/FunnelChartConfigForm.vue:56
 #: frontend/src2/charts/components/SankeyChartConfigForm.vue:70
 msgid "Left"
 msgstr "Lijevo"
@@ -1706,20 +1830,24 @@ msgstr "Ograniči"
 
 #. Label of the linked_charts (Table MultiSelect) field in DocType 'Insights
 #. Dashboard v3'
-#: frontend/src2/dashboard/DashboardFilterEditor.vue:191
+#: frontend/src2/dashboard/DashboardFilterEditor.vue:193
 #: insights/insights/doctype/insights_dashboard_v3/insights_dashboard_v3.json
 msgid "Linked Charts"
 msgstr "Povezani Grafikoni"
-
-#. Label of the linked_queries (JSON) field in DocType 'Insights Query v3'
-#: insights/insights/doctype/insights_query_v3/insights_query_v3.json
-msgid "Linked Queries"
-msgstr "Povezani Upiti"
 
 #. Label of the table_links (Table) field in DocType 'Insights Table'
 #: insights/insights/doctype/insights_table/insights_table.json
 msgid "Links"
 msgstr "Veze"
+
+#: frontend/src2/dashboard/DashboardList.vue:198
+#: frontend/src2/workbook/WorkbookList.vue:261
+msgid "Load more"
+msgstr "Učitaj više"
+
+#: frontend/src2/workbook/WorkbookLineageDialog.vue:179
+msgid "Loading\\u2026"
+msgstr "Učitavanje\\u2026"
 
 #. Label of the output (Code) field in DocType 'Insights Table Import Log'
 #: insights/insights/doctype/insights_table_import_log/insights_table_import_log.json
@@ -1754,7 +1882,7 @@ msgstr "Dugi Cijeli broj"
 msgid "Long Text"
 msgstr "Dugi Tekst"
 
-#: frontend/src2/teams/ManageTeamDialog.vue:63
+#: frontend/src2/teams/ManageTeamDialog.vue:64
 msgid "Manage Team"
 msgstr "Upravljaj timom"
 
@@ -1771,6 +1899,10 @@ msgstr "Upravljaj pristupom radnoj svesci"
 #: insights/insights/doctype/insights_data_source_v3/insights_data_source_v3.json
 msgid "MariaDB"
 msgstr "MariaDB"
+
+#: frontend/src2/dashboard/DashboardList.vue:78
+msgid "Mark a dashboard as favorite to see it here."
+msgstr "Odaberi kontrolnu tablu kao omiljenu da bi je vidjeli ovdje."
 
 #: insights/insights/doctype/insights_table_import_log/insights_table_import_log.js:7
 msgid "Mark as Failed"
@@ -1795,7 +1927,7 @@ msgstr "Maksimalna Upotreba Memorije"
 msgid "Max Records To Sync"
 msgstr "Maksimalan broj zapisa za sinhronizaciju"
 
-#: frontend/src2/charts/components/MeasurePicker.vue:130
+#: frontend/src2/charts/components/MeasurePicker.vue:140
 msgid "Maximum of..."
 msgstr "Maksimum od..."
 
@@ -1814,12 +1946,11 @@ msgstr "Ograničenje memorije (MB)"
 msgid "Message"
 msgstr "Poruka"
 
-#: frontend/src2/charts/components/MeasurePicker.vue:129
+#: frontend/src2/charts/components/MeasurePicker.vue:139
 msgid "Minimum of..."
 msgstr "Minimum od..."
 
 #: frontend/src2/data_source/DataSourceList.vue:120
-#: frontend/src2/workbook/WorkbookList.vue:103
 msgid "Modified"
 msgstr "Izmijenjeno"
 
@@ -1833,6 +1964,10 @@ msgstr "Ponedjeljak"
 #: insights/insights/doctype/insights_alert/insights_alert.json
 msgid "Monthly"
 msgstr "Mjesečno"
+
+#: frontend/src2/workbook/WorkbookList.vue:250
+msgid "Move to folder"
+msgstr "Premjesti u mapu"
 
 #. Option for the 'Cardinality' (Select) field in DocType 'Insights Table Link'
 #: insights/insights/doctype/insights_table_link/insights_table_link.json
@@ -1868,13 +2003,17 @@ msgstr "Nova Nadzorna Tabla"
 msgid "New Data Source"
 msgstr "Novi Izvor Podataka"
 
+#: frontend/src2/workbook/WorkbookList.vue:105
+msgid "New Folder"
+msgstr "Nova Mapa"
+
 #: frontend/src2/workbook/WorkbookTabSwitcher.vue:62
 msgid "New Query"
 msgstr "Novi Upit"
 
 #: frontend/src2/home/HomeQuickActions.vue:28
-#: frontend/src2/workbook/WorkbookList.vue:116
-#: frontend/src2/workbook/WorkbookList.vue:151
+#: frontend/src2/workbook/WorkbookList.vue:167
+#: frontend/src2/workbook/WorkbookList.vue:202
 msgid "New Workbook"
 msgstr "Nova Radna Sveska"
 
@@ -1887,13 +2026,17 @@ msgstr "Sljedeće Izvršenje"
 msgid "No"
 msgstr "Ne"
 
-#: frontend/src2/dashboard/DashboardList.vue:94
-msgid "No Dashboards"
-msgstr "Nema Nadzornih Tabli"
+#: frontend/src2/dashboard/DashboardList.vue:77
+msgid "No Favorites"
+msgstr "Nema Favorita"
 
 #: frontend/src2/query/components/source_selector/WorkbookQueryList.vue:90
 msgid "No Queries Found"
 msgstr "Nema pronađenih Upita"
+
+#: frontend/src2/dashboard/DashboardList.vue:82
+msgid "No Recents"
+msgstr "Nema Nedavnih"
 
 #: frontend/src2/data_source/DataSourceTableList.vue:40
 #: frontend/src2/query/components/source_selector/DataSourceTableList.vue:58
@@ -1902,9 +2045,9 @@ msgstr "Nema pronađenih tabela"
 
 #: frontend/src2/data_store/DataStoreList.vue:57
 msgid "No Tables Stored"
-msgstr "Nema sačuvanih tabela"
+msgstr "Nema spremljenih tabela"
 
-#: frontend/src2/workbook/WorkbookList.vue:113
+#: frontend/src2/workbook/WorkbookList.vue:160
 msgid "No Workbooks"
 msgstr "Nema Radnih Svesaka"
 
@@ -1923,6 +2066,14 @@ msgstr "Nema izvora podataka za prikaz."
 #: frontend/src2/data_source/DataSourceList.vue:130
 msgid "No data sources."
 msgstr "Nema izvora podataka."
+
+#: frontend/src2/dashboard/DashboardList.vue:98
+msgid "No folders or dashboards to display."
+msgstr "Nema mapa ni nadzornih ploča za prikaz."
+
+#: frontend/src2/workbook/WorkbookList.vue:162
+msgid "No folders or workbooks here."
+msgstr "Ovdje nema mapa ni radnih svesaka."
 
 #: frontend/src2/data_source/DataSourceTableList.vue:41
 msgid "No tables found for the selected data source."
@@ -1954,9 +2105,9 @@ msgstr "Nema korisnika."
 
 #: frontend/src2/home/HomeWorkbookList.vue:66
 msgid "No workbooks created"
-msgstr "Nema kreiranih radnih svesaka"
+msgstr "Nema izrađenih radnih svesaka"
 
-#: frontend/src2/workbook/WorkbookList.vue:114
+#: frontend/src2/workbook/WorkbookList.vue:163
 msgid "No workbooks to display."
 msgstr "Nema radnih svesaka za prikaz."
 
@@ -1970,6 +2121,12 @@ msgstr "Nijedan"
 #: insights/insights/doctype/insights_notebook_page/insights_notebook_page.json
 msgid "Notebook"
 msgstr "Bilježnica"
+
+#: frontend/src2/dashboard/DashboardList.vue:87
+#: frontend/src2/dashboard/DashboardList.vue:92
+#: frontend/src2/dashboard/DashboardList.vue:97
+msgid "Nothing here"
+msgstr "Ništa ovdje"
 
 #. Label of the old_name (Data) field in DocType 'Insights Chart v3'
 #. Label of the old_name (Data) field in DocType 'Insights Dashboard v3'
@@ -1986,20 +2143,24 @@ msgstr "Staro Ime"
 msgid "Onboarding Complete"
 msgstr "Introdukcija Završena"
 
+#: insights/api/workbooks.py:367
+msgid "Only an Insights Admin can manage workbook folders"
+msgstr "Samo Administrator Uvida može upravljati mapama radnih svesaka"
+
 #: frontend/src2/dashboard/Dashboard.vue:68
-#: frontend/src2/dashboard/DashboardList.vue:22
+#: frontend/src2/dashboard/DashboardList.vue:117
 msgid "Open Workbook"
 msgstr "Otvori Radnu Svesku"
 
-#: frontend/src2/charts/components/ChartBuilderToolbar.vue:55
-#: frontend/src2/workbook/WorkbookNavbarActions.vue:72
+#: frontend/src2/charts/components/ChartBuilderToolbar.vue:65
+#: frontend/src2/workbook/WorkbookNavbarActions.vue:79
 msgid "Open in Desk"
 msgstr "Otvori u Radnoj Površini"
 
 #. Label of the operations (JSON) field in DocType 'Insights Query v3'
 #: insights/insights/doctype/insights_query_v3/insights_query_v3.json
 msgid "Operations"
-msgstr "Operacije"
+msgstr "Radnje"
 
 #: frontend/src2/query/components/FormatRule.vue:416
 msgid "Operator"
@@ -2031,9 +2192,14 @@ msgstr "Prebriši"
 
 #: frontend/src2/data_source/DataSourceList.vue:106
 #: frontend/src2/teams/TeamList.vue:34
-#: frontend/src2/workbook/WorkbookList.vue:89
 msgid "Owner"
 msgstr "Odgovorni"
+
+#. Label of the parent_folder (Link) field in DocType 'Insights Workbook
+#. Folder'
+#: insights/insights/doctype/insights_workbook_folder/insights_workbook_folder.json
+msgid "Parent Folder"
+msgstr "Nadređena mapa"
 
 #. Label of the parquet_file (Text) field in DocType 'Insights Table Import
 #. Log'
@@ -2090,7 +2256,7 @@ msgstr "Odaberi početne podatke"
 msgid "Pivot"
 msgstr "Pivot"
 
-#: frontend/src2/query/components/NativeQueryEditor.vue:26
+#: frontend/src2/query/components/NativeQueryEditor.vue:29
 msgid "Please select a data source first"
 msgstr "Prvo odaberi izvor podataka"
 
@@ -2133,6 +2299,12 @@ msgstr "Pregled slike"
 msgid "Primary Key"
 msgstr "Primarni Ključ"
 
+#. Label of the sync_primary_key_column (Data) field in DocType 'Insights Table
+#. v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.json
+msgid "Primary Key Column"
+msgstr "Kolona Primarnog Ključa"
+
 #: frontend/src2/settings/Settings.vue:13
 msgid "Profile"
 msgstr "Profil"
@@ -2156,21 +2328,30 @@ msgstr "Upiti"
 #. Label of the tab_break_1 (Tab Break) field in DocType 'Insights Query'
 #. Label of the query (Link) field in DocType 'Insights Query Chart'
 #. Label of the query (Data) field in DocType 'Insights Query Execution Log'
+#. Label of the query (Link) field in DocType 'Insights Query Reference'
+#. Option for the 'Reference Type' (Select) field in DocType 'Insights Query
+#. Reference'
 #. Label of the query (Link) field in DocType 'Insights Query Result'
 #. Label of the query_section (Section Break) field in DocType 'Insights
 #. Settings'
 #: frontend/src2/query/components/JoinSelectorDialog.vue:164
 #: frontend/src2/query/components/UnionSelectorDialog.vue:71
+#: frontend/src2/workbook/WorkbookLineageDialog.vue:207
 #: insights/insights/doctype/insights_alert/insights_alert.json
 #: insights/insights/doctype/insights_chart/insights_chart.json
 #: insights/insights/doctype/insights_chart_v3/insights_chart_v3.json
 #: insights/insights/doctype/insights_query/insights_query.json
 #: insights/insights/doctype/insights_query_chart/insights_query_chart.json
 #: insights/insights/doctype/insights_query_execution_log/insights_query_execution_log.json
+#: insights/insights/doctype/insights_query_reference/insights_query_reference.json
 #: insights/insights/doctype/insights_query_result/insights_query_result.json
 #: insights/insights/doctype/insights_settings/insights_settings.json
 msgid "Query"
 msgstr "Upit"
+
+#: frontend/src2/workbook/WorkbookLineageDialog.vue:149
+msgid "Query Lineage"
+msgstr "Red Upita"
 
 #. Label of the query_result_limit (Int) field in DocType 'Insights Settings'
 #: insights/insights/doctype/insights_settings/insights_settings.json
@@ -2199,6 +2380,10 @@ msgstr "Uslov rangiranja"
 msgid "Ranking Rules"
 msgstr "Pravila Rangiranja"
 
+#: frontend/src2/dashboard/DashboardList.vue:27
+msgid "Recents"
+msgstr "Skorašnji"
+
 #. Label of the recipients (Small Text) field in DocType 'Insights Alert'
 #: frontend/src2/query/components/AlertSetupDialog.vue:181
 #: insights/insights/doctype/insights_alert/insights_alert.json
@@ -2213,18 +2398,32 @@ msgstr "Crvena"
 msgid "Red-Green"
 msgstr "Crveno-Zelena"
 
+#. Label of the ref_type (Select) field in DocType 'Insights Query Reference'
+#: insights/insights/doctype/insights_query_reference/insights_query_reference.json
+msgid "Reference Type"
+msgstr "Referentni Tip"
+
+#. Label of the ref_query (Link) field in DocType 'Insights Query Reference'
+#: insights/insights/doctype/insights_query_reference/insights_query_reference.json
+msgid "Referenced Query"
+msgstr "Referencirani Upit"
+
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:84
+msgid "Referencing Queries"
+msgstr "Referencirani Upiti"
+
 #: frontend/src2/dashboard/Dashboard.vue:51
 #: frontend/src2/data_source/DataSourceTableList.vue:43
 msgid "Refresh"
 msgstr "Osvježi"
 
-#: frontend/src2/dashboard/DashboardList.vue:27
+#: frontend/src2/dashboard/DashboardList.vue:122
 msgid "Refresh Preview"
 msgstr "Osvježi Pregled"
 
-#: frontend/src2/query/components/QueryBuilderToolbar.vue:19
+#: frontend/src2/query/components/QueryToolbar.vue:28
 msgid "Refresh Stored Tables"
-msgstr "Osvježi Sačuvane Tabele"
+msgstr "Osvježi Spremljene Tabele"
 
 #: frontend/src2/query/components/source_selector/DataSourceTableList.vue:62
 #: frontend/src2/query/components/source_selector/DataSourceTableList.vue:87
@@ -2244,11 +2443,11 @@ msgstr "Ukloni"
 msgid "Remove Sort"
 msgstr "Ukloni Sortiranje"
 
-#: frontend/src2/dashboard/DashboardBuilder.vue:158
+#: frontend/src2/dashboard/DashboardBuilder.vue:170
 msgid "Reset Layout"
-msgstr "Poništi Izgled"
+msgstr "Poništi Raspored"
 
-#: frontend/src2/charts/components/ChartBuilderToolbar.vue:44
+#: frontend/src2/charts/components/ChartBuilderToolbar.vue:49
 msgid "Reset Options"
 msgstr "Poništi Opcije"
 
@@ -2290,7 +2489,6 @@ msgid "Results Row Count"
 msgstr "Broj Redova Rezultata"
 
 #: frontend/src2/charts/components/DonutChartConfigForm.vue:60
-#: frontend/src2/charts/components/FunnelChartConfigForm.vue:57
 #: frontend/src2/charts/components/SankeyChartConfigForm.vue:71
 msgid "Right"
 msgstr "Desno"
@@ -2373,7 +2571,7 @@ msgstr "Primjeri podataka s radnom sveskom su uspješno postavljeni"
 msgid "Saturday"
 msgstr "Subota"
 
-#: frontend/src2/dashboard/DashboardFilterEditor.vue:155
+#: frontend/src2/dashboard/DashboardFilterEditor.vue:157
 #: frontend/src2/dashboard/DashboardText.vue:27
 #: frontend/src2/workbook/WorkbookShareDialog.vue:95
 msgid "Save"
@@ -2385,7 +2583,7 @@ msgstr "Spremi Promjene"
 
 #: frontend/src2/components/VariablesDialog.vue:133
 msgid "Save Variables"
-msgstr "Sačuvaj Varijable"
+msgstr "Spremi Varijable"
 
 #. Label of the schedule (Data) field in DocType 'Insights Table Import Job'
 #: insights/insights/doctype/insights_table_import_job/insights_table_import_job.json
@@ -2410,7 +2608,6 @@ msgstr "Skripta"
 msgid "Script Log"
 msgstr "Zapisnik Skripte"
 
-#: frontend/src2/dashboard/DashboardList.vue:52
 #: frontend/src2/data_store/DataStoreList.vue:92
 #: frontend/src2/query/components/QueryAlertsDialog.vue:102
 #: frontend/src2/settings/UsersSettings.vue:149
@@ -2420,13 +2617,21 @@ msgstr "Traži"
 
 #: frontend/src2/query/components/source_selector/DataSourceTableList.vue:75
 #: frontend/src2/query/components/source_selector/WorkbookQueryList.vue:63
-#: frontend/src2/workbook/WorkbookList.vue:166
 msgid "Search by Title"
 msgstr "Traži po Nazivu"
 
 #: frontend/src2/dashboard/DashboardChartSelectorDialog.vue:85
 msgid "Search by name"
 msgstr "Pretraga po imenu"
+
+#: frontend/src2/dashboard/DashboardList.vue:159
+#: frontend/src2/workbook/WorkbookList.vue:225
+msgid "Search by title"
+msgstr "Traži po Nazivu"
+
+#: frontend/src2/workbook/WorkbookLineageDialog.vue:163
+msgid "Search nodes\\u2026"
+msgstr "Pretraži čvorove\\u2026"
 
 #. Label of the secrets (Table) field in DocType 'Insights Table Import Job'
 #: insights/insights/doctype/insights_table_import_job/insights_table_import_job.json
@@ -2461,7 +2666,7 @@ msgstr "Odaberi Izvor"
 msgid "Select Table"
 msgstr "Odaberi Tabelu"
 
-#: frontend/src2/dashboard/DashboardFilterEditor.vue:210
+#: frontend/src2/dashboard/DashboardFilterEditor.vue:212
 msgid "Select a column"
 msgstr "Odaberi kolonu"
 
@@ -2471,13 +2676,13 @@ msgstr "Odaberi izvor podataka"
 
 #: frontend/src2/query/components/AddOperationPopover.vue:33
 msgid "Select a table or query to start building your query"
-msgstr "Odaberi tabelu ili upit da biste započeli kreiranje upita"
+msgstr "Odaberi tabelu ili upit da biste započeli izradu upita"
 
 #: frontend/src2/query/components/AddOperationPopover.vue:145
 msgid "Select an operation"
-msgstr "Odaberi operaciju"
+msgstr "Odaberi radnju"
 
-#: frontend/src2/dashboard/DashboardFilterEditor.vue:253
+#: frontend/src2/dashboard/DashboardFilterEditor.vue:255
 msgid "Select operator..."
 msgstr "Odaberi operatera..."
 
@@ -2508,14 +2713,14 @@ msgstr "Postavi v2 kao standard"
 
 #: frontend/src2/query/components/QueryAlertsDialog.vue:77
 msgid "Set up alerts to get notified when a condition is met"
-msgstr "Postavite upozorenja da biste bili obaviješteni kada se ispuni uslov"
+msgstr "Postavi upozorenja da biste bili obaviješteni kada se ispuni uslov"
 
 #: frontend/src2/components/AppSidebar.vue:95
 #: frontend/src2/settings/Settings.vue:58
 msgid "Settings"
 msgstr "Postavke"
 
-#: frontend/src2/dashboard/DashboardFilterEditor.vue:28
+#: frontend/src2/dashboard/DashboardFilterEditor.vue:29
 msgid "Setup"
 msgstr "Postavljanja"
 
@@ -2537,7 +2742,7 @@ msgstr "Postavi Demo Podatake"
 msgid "Setup Failed"
 msgstr "Postavljanje nije uspjelo"
 
-#: frontend/src2/charts/components/ChartBuilderToolbar.vue:33
+#: frontend/src2/charts/components/ChartBuilderToolbar.vue:38
 #: frontend/src2/charts/components/ChartShareDialog.vue:35
 msgid "Share Chart"
 msgstr "Dijeli Grafikon"
@@ -2550,6 +2755,15 @@ msgstr "Djeli Nadzornu Tablu"
 #: insights/insights/doctype/insights_dashboard_v3/insights_dashboard_v3.json
 msgid "Share Link"
 msgstr "Podijeli Link"
+
+#: frontend/src2/dashboard/DashboardList.vue:30
+#: frontend/src2/workbook/WorkbookList.vue:45
+msgid "Shared"
+msgstr "Podijeljeno"
+
+#: frontend/src2/charts/components/FunnelChartConfigForm.vue:51
+msgid "Show Percentage"
+msgstr "Prikaži Postotak"
 
 #: frontend/src2/query/components/AddOperationPopover.vue:39
 msgid "Show or hide columns from the table"
@@ -2587,6 +2801,18 @@ msgstr "Određene osobe mogu da vide"
 msgid "Spreading column values into separate columns"
 msgstr "Raspoređivanje vrijednosti kolone u odvojene kolone"
 
+#. Description of the 'Primary Key Column' (Data) field in DocType 'Insights
+#. Table v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.json
+msgid "Stable key used to identify the latest version of each logical row during incremental upserts."
+msgstr "Stabilni ključ koji se koristi za identifikaciju najnovije verzije svakog logičkog reda tokom inkrementalnih upsertova."
+
+#. Description of the 'Sync From' (Datetime) field in DocType 'Insights Table
+#. v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.json
+msgid "Start importing rows from this datetime onward (used on first sync only)"
+msgstr "Počni uvoziti redove od ovog datuma i vremena nadalje (koristi se samo pri prvoj sinhronizaciji)"
+
 #. Option for the 'Status' (Select) field in DocType 'Insights Table Import'
 #: insights/insights/doctype/insights_table_import/insights_table_import.json
 msgid "Started"
@@ -2606,6 +2832,14 @@ msgstr "Pokretanje..."
 #: insights/insights/doctype/insights_table_import_job/insights_table_import_job.json
 msgid "State (JSON)"
 msgstr "Stanje (JSON)"
+
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:32
+msgid "Statistics"
+msgstr "Statistika"
+
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:91
+msgid "Statistics — {0}"
+msgstr "Statistika — {0}"
 
 #. Label of the status (Select) field in DocType 'Insights Data Source'
 #. Label of the status (Select) field in DocType 'Insights Data Source v3'
@@ -2631,7 +2865,7 @@ msgstr "Status"
 #: insights/insights/doctype/insights_query/insights_query.json
 #: insights/insights/doctype/insights_table_v3/insights_table_v3.json
 msgid "Stored"
-msgstr "Sačuvano"
+msgstr "Spremljeno"
 
 #. Option for the 'Type' (Select) field in DocType 'Insights Table Column'
 #: insights/insights/doctype/insights_table_column/insights_table_column.json
@@ -2643,7 +2877,7 @@ msgstr "Niz"
 msgid "Success"
 msgstr "Uspjeh"
 
-#: frontend/src2/charts/components/MeasurePicker.vue:127
+#: frontend/src2/charts/components/MeasurePicker.vue:137
 msgid "Sum of..."
 msgstr "Suma od..."
 
@@ -2662,6 +2896,25 @@ msgstr "Prebaci na Radnu Površinu"
 msgid "Switch to Insights v2"
 msgstr "Pređi na v2"
 
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:58
+msgid "Sync"
+msgstr "Sinhronizacija"
+
+#. Label of the sync_from (Datetime) field in DocType 'Insights Table v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.json
+msgid "Sync From"
+msgstr "Sinhronizacija Od"
+
+#. Label of the sync_mode (Select) field in DocType 'Insights Table v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.json
+msgid "Sync Mode"
+msgstr "Način Sinhronizacije"
+
+#. Label of the sync_strategy (Select) field in DocType 'Insights Table v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.json
+msgid "Sync Strategy"
+msgstr "Strategija Sinhronizacije"
+
 #: frontend/src2/query/components/source_selector/DataSourceTableList.vue:59
 msgid "Sync tables from your data source to get started"
 msgstr "Sinhronizuj tabele iz izvora podataka da biste započeli"
@@ -2674,6 +2927,7 @@ msgstr "Sinhronizuj tabele iz izvora podataka da biste započeli"
 #: insights/insights/doctype/insights_notebook_page/insights_notebook_page.json
 #: insights/insights/doctype/insights_query/insights_query.json
 #: insights/insights/doctype/insights_query_chart/insights_query_chart.json
+#: insights/insights/doctype/insights_query_reference/insights_query_reference.json
 #: insights/insights/doctype/insights_query_result/insights_query_result.json
 #: insights/insights/doctype/insights_settings/insights_settings.json
 #: insights/insights/doctype/insights_table/insights_table.json
@@ -2684,13 +2938,17 @@ msgid "System Manager"
 msgstr "Upravitelj Sistema"
 
 #. Label of the table (Data) field in DocType 'Insights Query Column'
+#. Option for the 'Reference Type' (Select) field in DocType 'Insights Query
+#. Reference'
 #. Label of the table (Data) field in DocType 'Insights Query Table'
 #. Label of the table (Data) field in DocType 'Insights Table'
 #. Label of the table (Data) field in DocType 'Insights Table v3'
 #: frontend/src2/query/components/JoinSelectorDialog.vue:262
 #: frontend/src2/query/components/UnionSelectorDialog.vue:129
 #: frontend/src2/query/components/source_selector/DataSourceTableList.vue:28
+#: frontend/src2/workbook/WorkbookLineageDialog.vue:201
 #: insights/insights/doctype/insights_query_column/insights_query_column.json
+#: insights/insights/doctype/insights_query_reference/insights_query_reference.json
 #: insights/insights/doctype/insights_query_table/insights_query_table.json
 #: insights/insights/doctype/insights_table/insights_table.json
 #: insights/insights/doctype/insights_table_v3/insights_table_v3.json
@@ -2708,11 +2966,13 @@ msgstr "Tabela je uvezena"
 msgid "Table Label"
 msgstr "Oznaka Tabele"
 
+#. Label of the table_name (Data) field in DocType 'Insights Query Reference'
 #. Label of the table_name (Data) field in DocType 'Insights Table Import'
 #. Label of the table_name (Data) field in DocType 'Insights Table Import Job'
 #. Label of the table_name (Data) field in DocType 'Insights Table Import Log'
 #: frontend/src2/data_source/DataSourceTableList.vue:28
 #: frontend/src2/data_store/DataStoreList.vue:36
+#: insights/insights/doctype/insights_query_reference/insights_query_reference.json
 #: insights/insights/doctype/insights_table_import/insights_table_import.json
 #: insights/insights/doctype/insights_table_import_job/insights_table_import_job.json
 #: insights/insights/doctype/insights_table_import_log/insights_table_import_log.json
@@ -2771,6 +3031,12 @@ msgstr "Telegram API Token"
 msgid "Telegram Chat ID"
 msgstr "ID Telegram chata"
 
+#. Description of the 'Cursor Column' (Data) field in DocType 'Insights Table
+#. v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.json
+msgid "Temporal column used to detect rows that changed since the last sync. Use <b>modified</b> for mutable tables and <b>creation</b> for append-only tables."
+msgstr "Privremena kolona se koristi za detekciju redova koji su se promijenili od posljednje sinhronizacije. Koristi <b>modified</b> za promjenjive tabele i <b>creation</b> za tabele koje se mogu samo dodavati."
+
 #. Option for the 'Type' (Select) field in DocType 'Insights Table Column'
 #: insights/insights/doctype/insights_table_column/insights_table_column.json
 msgid "Text"
@@ -2799,6 +3065,14 @@ msgstr "Ove Sedmice"
 #: frontend/src2/query/components/ColumnFilterTypeDate.vue:57
 msgid "This Year"
 msgstr "Ove Godine"
+
+#: insights/insights/doctype/insights_dashboard_v3/insights_dashboard_v3.py:93
+msgid "This column is not available as a filter on this dashboard"
+msgstr "Ova kolona nije dostupna kao filter na ovoj nadzornoj tabli"
+
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:15
+msgid "This will delete all warehouse data for <b>{0}</b> and reset the sync bookmark. Are you sure?"
+msgstr "Ovim će se izbrisati svi skladišni podaci za <b>{0}</b> i poništiti sinhronizovana obeleživača. Jeste li sigurni?"
 
 #. Option for the 'Week Starts On' (Select) field in DocType 'Insights
 #. Settings'
@@ -2831,6 +3105,7 @@ msgstr "Vrijeme Izvršenja (Sekunde)"
 #. Label of the title (Data) field in DocType 'Insights Query v3'
 #. Label of the title (Data) field in DocType 'Insights Table Import Job'
 #. Label of the title (Data) field in DocType 'Insights Workbook'
+#. Label of the title (Data) field in DocType 'Insights Workbook Folder'
 #: frontend/src2/data_source/ConnectClickhouseDialog.vue:27
 #: frontend/src2/data_source/ConnectDuckDBDialog.vue:22
 #: frontend/src2/data_source/ConnectMariaDBDialog.vue:27
@@ -2838,7 +3113,6 @@ msgstr "Vrijeme Izvršenja (Sekunde)"
 #: frontend/src2/data_source/DataSourceList.vue:90
 #: frontend/src2/query/components/QueryAlertsDialog.vue:37
 #: frontend/src2/query/components/source_selector/WorkbookQueryList.vue:32
-#: frontend/src2/workbook/WorkbookList.vue:42
 #: insights/insights/doctype/insights_alert/insights_alert.json
 #: insights/insights/doctype/insights_chart_v3/insights_chart_v3.json
 #: insights/insights/doctype/insights_dashboard/insights_dashboard.json
@@ -2853,6 +3127,7 @@ msgstr "Vrijeme Izvršenja (Sekunde)"
 #: insights/insights/doctype/insights_query_v3/insights_query_v3.json
 #: insights/insights/doctype/insights_table_import_job/insights_table_import_job.json
 #: insights/insights/doctype/insights_workbook/insights_workbook.json
+#: insights/insights/doctype/insights_workbook_folder/insights_workbook_folder.json
 msgid "Title"
 msgstr "Naziv"
 
@@ -2871,6 +3146,14 @@ msgstr "Gornji N postotak"
 #: frontend/src2/query/components/FormatRule.vue:199
 msgid "Top N values"
 msgstr "Gornje N vrijednosti"
+
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:70
+msgid "Total Sync Time"
+msgstr "Ukupno Vrijeme Sinhronizacije"
+
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:69
+msgid "Total Syncs"
+msgstr "Ukupno Sinhronizacija"
 
 #. Label of the transform_tab (Tab Break) field in DocType 'Insights Query'
 #: insights/insights/doctype/insights_query/insights_query.json
@@ -2904,7 +3187,7 @@ msgstr "Utorak"
 #. Label of the type (Data) field in DocType 'Insights Query Column'
 #. Label of the type (Select) field in DocType 'Insights Query Transform'
 #. Label of the type (Select) field in DocType 'Insights Table Column'
-#: frontend/src2/dashboard/DashboardFilterEditor.vue:183
+#: frontend/src2/dashboard/DashboardFilterEditor.vue:185
 #: insights/insights/doctype/insights_dashboard_item/insights_dashboard_item.json
 #: insights/insights/doctype/insights_data_source_v3/insights_data_source_v3.json
 #: insights/insights/doctype/insights_folder/insights_folder.json
@@ -2919,7 +3202,7 @@ msgstr "Tip"
 msgid "Unexpected validation error"
 msgstr "Neočekivana greška u validaciji"
 
-#: frontend/src2/charts/components/MeasurePicker.vue:131
+#: frontend/src2/charts/components/MeasurePicker.vue:141
 msgid "Unique Count of..."
 msgstr "Jedinstveni broj od..."
 
@@ -2940,6 +3223,11 @@ msgstr "Ažuriraj veze tabela"
 msgid "Update Tables"
 msgstr "Ažuriraj tabele"
 
+#. Option for the 'Sync Strategy' (Select) field in DocType 'Insights Table v3'
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.json
+msgid "Update or Insert"
+msgstr "Ažuriraj ili Umetni"
+
 #: frontend/src2/data_source/DataSourceList.vue:76
 msgid "Upload CSV or Excel"
 msgstr "Otpremi CSV ili Excel"
@@ -2954,7 +3242,11 @@ msgstr "Otpremanje Neuspješno"
 
 #: frontend/src2/data_source/DataSourceList.vue:78
 msgid "Upload a CSV or Excel file to create a new data source"
-msgstr "Otpremi CSV ili Excel datoteku da biste kreirali novi izvor podataka"
+msgstr "Otpremi CSV ili Excel datoteku da biste izradili novi izvor podataka"
+
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:75
+msgid "Usage"
+msgstr "Upotreba"
 
 #: frontend/src2/query/components/AlertSetupDialog.vue:231
 msgid "Use Custom Condition"
@@ -3006,7 +3298,7 @@ msgstr "Validacija nije uspjela"
 
 #. Label of the value (Password) field in DocType 'Insights Secret Key'
 #: frontend/src2/components/VariablesDialog.vue:85
-#: frontend/src2/dashboard/DashboardFilterEditor.vue:293
+#: frontend/src2/dashboard/DashboardFilterEditor.vue:295
 #: frontend/src2/query/components/FormatRule.vue:425
 #: insights/insights/doctype/insights_secret_key/insights_secret_key.json
 msgid "Value"
@@ -3051,13 +3343,18 @@ msgstr "Vertikalno"
 msgid "Vertical Compact Layout"
 msgstr "Vertikalni Kompaktni Raspored"
 
-#: frontend/src2/query/components/QueryBuilderToolbar.vue:27
+#: frontend/src2/workbook/WorkbookNavbarActions.vue:54
+msgid "View Lineage"
+msgstr "Pregled Reda"
+
+#: frontend/src2/charts/components/ChartBuilderToolbar.vue:55
+#: frontend/src2/query/components/QueryToolbar.vue:40
 msgid "View SQL"
 msgstr "Prikaži SQL"
 
-#: frontend/src2/workbook/WorkbookList.vue:74
-msgid "Views"
-msgstr "Prikazi"
+#: insights/insights/doctype/insights_table_v3/insights_table_v3.js:22
+msgid "Warehouse data cleared"
+msgstr "Podaci skladišta su izbrisani"
 
 #. Option for the 'Week Starts On' (Select) field in DocType 'Insights
 #. Settings'
@@ -3088,7 +3385,7 @@ msgstr "Radna Sveska"
 
 #: frontend/src2/components/AppSidebar.vue:79
 #: frontend/src2/home/HomeWorkbookList.vue:36
-#: frontend/src2/workbook/WorkbookList.vue:148
+#: frontend/src2/workbook/WorkbookList.vue:37
 msgid "Workbooks"
 msgstr "Radne Sveske"
 
@@ -3108,25 +3405,30 @@ msgstr "Da"
 
 #: frontend/src2/query/components/AlertSetupDialog.vue:251
 msgid "You can use markdown to format the message. Use double asterisks (**) for bold text. You can use the following fields in the message:"
-msgstr "Možete koristiti markdown za formatiranje poruke. Koristite dvostruke zvjezdice (**) za podebljani tekst. U poruci možete koristiti sljedeća polja:"
+msgstr "Možete koristiti markdown za formatiranje poruke. Koristi dvostruke zvjezdice (**) za podebljani tekst. U poruci možete koristiti sljedeća polja:"
 
 #: insights/decorators.py:26
 msgid "You do not have permission to access this resource"
 msgstr "Nemate dozvolu za pristup ovom resursu"
 
-#: insights/api/workbooks.py:165 insights/api/workbooks.py:186
-#: insights/api/workbooks.py:198 insights/api/workbooks.py:225
-#: insights/api/workbooks.py:236 insights/api/workbooks.py:250
+#: insights/api/workbooks.py:235 insights/api/workbooks.py:254
+#: insights/api/workbooks.py:267 insights/api/workbooks.py:295
+#: insights/api/workbooks.py:307 insights/api/workbooks.py:321
+#: insights/api/workbooks.py:440
 msgid "You do not have permission to modify this workbook"
 msgstr "Nemate dozvolu za izmjenu ove radne sveske"
 
-#: insights/api/workbooks.py:79 insights/api/workbooks.py:132
+#: insights/api/workbooks.py:131 insights/api/workbooks.py:187
 msgid "You do not have permission to share this workbook"
 msgstr "Nemate dozvolu za dijeljenje ove radne sveske"
 
+#: frontend/src2/dashboard/DashboardList.vue:88
+msgid "You haven't created any dashboards yet."
+msgstr "Još niste izradili nijednu nadzornu tablu."
+
 #: frontend/src2/home/HomeWorkbookList.vue:68
 msgid "Your workbooks will appear here. Create a new workbook to get started."
-msgstr "Vaše radne sveske će se pojaviti ovdje. Kreirajte novu radnu svesku da biste započeli."
+msgstr "Vaše radne sveske će se pojaviti ovdje. Izradi novu radnu svesku da biste započeli."
 
 #: frontend/src2/query/components/FormatRule.vue:194
 msgid "after date"
@@ -3186,6 +3488,10 @@ msgstr "npr. api_key"
 #: frontend/src2/query/components/AlertSetupDialog.vue:183
 msgid "e.g. john@example.com, henry@example.com"
 msgstr "npr. john@example.com, henry@example.com"
+
+#: frontend/src2/workbook/WorkbookLineageDialog.vue:158
+msgid "edges"
+msgstr "rubovi"
 
 #: frontend/src2/query/components/FormatRule.vue:177
 msgid "ends with"
@@ -3258,6 +3564,10 @@ msgstr "manje od"
 #: frontend/src2/query/components/FormatRule.vue:170
 msgid "less than or equals"
 msgstr "manje ili jednako"
+
+#: frontend/src2/workbook/WorkbookLineageDialog.vue:157
+msgid "nodes"
+msgstr "čvorovi"
 
 #: frontend/src2/query/components/FormatRule.vue:166
 msgid "not equals"

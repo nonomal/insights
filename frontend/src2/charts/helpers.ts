@@ -1,8 +1,9 @@
 import { graphic } from 'echarts/core'
 import { ellipsis, formatNumber, getShortNumber, toTitleCase } from '../helpers'
-import { FIELDTYPES } from '../helpers/constants'
+import { FIELDTYPES, isCalendarDateType } from '../helpers/constants'
 import { getFormattedDate } from '../query/helpers'
 import {
+	AXIS_CHARTS,
 	AxisChartConfig,
 	BarChartConfig,
 	BubbleChartConfig,
@@ -11,13 +12,14 @@ import {
 	FunnelChartConfig,
 	LineChartConfig,
 	MapChartConfig,
+	ReferenceLine,
 	SankeyChartConfig,
 	Series,
 	SeriesLine,
 	XAxis,
 } from '../types/chart.types'
 import { QueryResult, QueryResultColumn, QueryResultRow } from '../types/query.types'
-import { getColors, getGradientColors } from './colors'
+import { getColors } from './colors'
 
 interface GeoJSONFeature {
 	type: string
@@ -51,15 +53,38 @@ export function guessChart(columns: QueryResultColumn[], rows: QueryResultRow[])
 	if (discreteDimensions.length > 1 && measures.length) return 'table'
 }
 
+export function getAxisChartRowOrder(rows: any[], xAxisConfig: any, reversed = false) {
+	let indices = rows.map((_, i) => i)
+	const xAxisIsDate = isCalendarDateType(xAxisConfig.dimension?.data_type)
+
+	if (xAxisIsDate) {
+		indices.sort((a, b) => {
+			const a_date = new Date(rows[a][xAxisConfig.dimension.dimension_name])
+			const b_date = new Date(rows[b][xAxisConfig.dimension.dimension_name])
+			return a_date.getTime() - b_date.getTime()
+		})
+	}
+
+	if (reversed) {
+		indices.reverse()
+	}
+	return indices
+}
+
 export function getLineChartOptions(config: LineChartConfig, result: QueryResult) {
 	const _columns = result.columns
 	const _rows = result.rows
 
-	const number_columns = _columns.filter((c) => FIELDTYPES.NUMBER.includes(c.type))
+	// The x-axis dimension is a result column too; when it is numeric (e.g. an Integer
+	// day offset) it must not be picked up as a plotted series alongside the measures.
+	const x_dimension_name = config.x_axis.dimension.dimension_name
+	const number_columns = _columns.filter(
+		(c) => FIELDTYPES.NUMBER.includes(c.type) && c.name !== x_dimension_name,
+	)
 	const show_scrollbar = config.y_axis.show_scrollbar || false
 
 	const xAxis = getXAxis(config.x_axis)
-	const xAxisIsDate = FIELDTYPES.DATE.includes(config.x_axis.dimension.data_type)
+	const xAxisIsDate = isCalendarDateType(config.x_axis.dimension.data_type)
 	const granularity = xAxisIsDate
 		? getGranularity(config.x_axis.dimension.dimension_name, config)
 		: null
@@ -69,13 +94,8 @@ export function getLineChartOptions(config: LineChartConfig, result: QueryResult
 	const hasRightAxis = config.y_axis.series.some((s) => s.align === 'Right')
 	const yAxis = !hasRightAxis ? [leftYAxis] : [leftYAxis, rightYAxis]
 
-	const sortedRows = xAxisIsDate
-		? [..._rows].sort((a, b) => {
-				const a_date = new Date(a[config.x_axis.dimension.dimension_name])
-				const b_date = new Date(b[config.x_axis.dimension.dimension_name])
-				return a_date.getTime() - b_date.getTime()
-		  })
-		: _rows
+	const rowOrder = getAxisChartRowOrder(_rows, config.x_axis)
+	const sortedRows = rowOrder.map((i) => _rows[i])
 
 	const getSeriesData = (column: string) =>
 		sortedRows.map((r) => {
@@ -149,7 +169,10 @@ export function getLineChartOptions(config: LineChartConfig, result: QueryResult
 		color: colors,
 		xAxis,
 		yAxis,
-		series: chartSeries,
+		series: [
+			...chartSeries,
+			...getReferenceLineSeries(config.y_axis.reference_lines, hasRightAxis, chartSeries),
+		],
 		tooltip: getTooltip({
 			xAxisIsDate,
 			granularity,
@@ -187,11 +210,16 @@ export function getBarChartOptions(config: BarChartConfig, result: QueryResult, 
 	const _columns = result.columns
 	const _rows = result.rows
 
-	const number_columns = _columns.filter((c) => FIELDTYPES.NUMBER.includes(c.type))
+	// The x-axis dimension is a result column too; when it is numeric (e.g. an Integer
+	// day offset) it must not be picked up as a plotted series alongside the measures.
+	const x_dimension_name = config.x_axis.dimension.dimension_name
+	const number_columns = _columns.filter(
+		(c) => FIELDTYPES.NUMBER.includes(c.type) && c.name !== x_dimension_name,
+	)
 	const show_scrollbar = config.y_axis.show_scrollbar || false
 
 	const xAxis = getXAxis(config.x_axis)
-	const xAxisIsDate = FIELDTYPES.DATE.includes(config.x_axis.dimension.data_type)
+	const xAxisIsDate = isCalendarDateType(config.x_axis.dimension.data_type)
 	const granularity = xAxisIsDate
 		? getGranularity(config.x_axis.dimension.dimension_name, config)
 		: null
@@ -205,13 +233,8 @@ export function getBarChartOptions(config: BarChartConfig, result: QueryResult, 
 	const hasRightAxis = config.y_axis.series.some((s) => s.align === 'Right')
 	const yAxis = !hasRightAxis ? [leftYAxis] : [leftYAxis, rightYAxis]
 
-	const sortedRows = xAxisIsDate
-		? [..._rows].sort((a, b) => {
-				const a_date = new Date(a[config.x_axis.dimension.dimension_name])
-				const b_date = new Date(b[config.x_axis.dimension.dimension_name])
-				return a_date.getTime() - b_date.getTime()
-		  })
-		: _rows
+	const rowOrder = getAxisChartRowOrder(_rows, config.x_axis, swapAxes)
+	const sortedRows = rowOrder.map((i) => _rows[i])
 
 	const total_per_x_value = _rows.reduce((acc, row) => {
 		const x_value = row[config.x_axis.dimension.dimension_name]
@@ -264,7 +287,7 @@ export function getBarChartOptions(config: BarChartConfig, result: QueryResult, 
 			type,
 			stack: config.y_axis.overlap ? undefined : stack,
 			name,
-			data: swapAxes ? data.reverse() : data,
+			data,
 			color: color,
 			label: {
 				show: hide_from_chart ? false : show_data_labels,
@@ -300,7 +323,15 @@ export function getBarChartOptions(config: BarChartConfig, result: QueryResult, 
 		xAxis: swapAxes ? yAxis : xAxis,
 		yAxis: swapAxes ? xAxis : yAxis,
 		dataZoom: getDataZoom(show_scrollbar, swapAxes),
-		series: chartSeries,
+		series: [
+			...chartSeries,
+			...getReferenceLineSeries(
+				config.y_axis.reference_lines,
+				hasRightAxis,
+				chartSeries,
+				swapAxes,
+			),
+		],
 		tooltip: getTooltip({
 			xAxisIsDate,
 			granularity,
@@ -335,7 +366,7 @@ function getSerie(config: AxisChartConfig, number_column: string): Series {
 
 function getXAxis(x_axis: XAxis) {
 	const columnType = x_axis.dimension.data_type
-	const xAxisIsDate = columnType && FIELDTYPES.DATE.includes(columnType)
+	const xAxisIsDate = isCalendarDateType(columnType)
 	const rotation = Math.min(Math.max(x_axis.label_rotation || 0, 0), 90)
 
 	return {
@@ -389,6 +420,157 @@ function getYAxis(options: YAxisCustomizeOptions = {}) {
 		},
 		min: options.normalized ? 0 : options.min || undefined,
 		max: options.normalized ? 100 : options.max || undefined,
+	}
+}
+
+// Reference lines are drawn as markLines on their own empty series, one per value axis
+// they target, instead of on a plotted series. A markLine inherits the axis and the
+// visibility of its host, so hosting on real data would put a line on the wrong scale and
+// let a legend toggle take it away with the series. A 'y' line targets the left axis, or
+// the right one when align === 'Right'; 'x' (category) lines have no left/right and ride
+// with the left group. Append the result to `series` after the legend is built so these
+// hosts stay out of it.
+function getReferenceLineSeries(
+	reference_lines: ReferenceLine[] | undefined,
+	hasRightAxis: boolean,
+	chartSeries: any[],
+	swapAxes = false,
+) {
+	if (!reference_lines?.length) return []
+
+	const targetsRight = (line: ReferenceLine) =>
+		hasRightAxis && (line.axis || 'y') === 'y' && line.align === 'Right'
+
+	// the value axis is the yAxis normally, but becomes the xAxis when axes are swapped
+	const axisIndexKey = swapAxes ? 'xAxisIndex' : 'yAxisIndex'
+
+	return [
+		{ axisIndex: 0, lines: reference_lines.filter((l) => !targetsRight(l)) },
+		{ axisIndex: 1, lines: reference_lines.filter(targetsRight) },
+	]
+		.map(({ axisIndex, lines }) => {
+			// reading every plotted point is only worth it when a line asks for a statistic
+			const values = lines.some((l) => l.statistic)
+				? getPlottedValues(chartSeries, axisIndex, swapAxes)
+				: []
+			const markLine = getReferenceMarkLine(lines, values, swapAxes)
+			return markLine
+				? {
+						type: 'line',
+						name: `_reference_lines_${axisIndex}`,
+						data: [],
+						silent: true,
+						[axisIndexKey]: axisIndex,
+						markLine,
+				  }
+				: undefined
+		})
+		.filter(Boolean)
+}
+
+// Every number the chart draws on one value axis. A statistic reference line reads these,
+// so it lands on the same numbers the reader sees, across all measures on that axis. A
+// hidden series is not on screen, and a stacked series is drawn as the stack total, so the
+// line is compared against the bar top rather than against one measure inside it.
+function getPlottedValues(chartSeries: any[], axisIndex: number, swapAxes: boolean) {
+	const plotted = chartSeries.filter(
+		(s) => (s.yAxisIndex || 0) === axisIndex && !s._hide_from_chart,
+	)
+
+	const values: number[] = []
+	const stackTotals: Record<string, number> = {}
+
+	plotted.forEach((s) => {
+		;(s.data || []).forEach((point: any) => {
+			const value = toPlottedNumber(swapAxes ? point[0] : point[1])
+			if (value === undefined) return
+			if (!s.stack) {
+				values.push(value)
+				return
+			}
+			// a gap in one series still leaves the rest of the stack drawn, and echarts
+			// stacks a negative value downwards from zero, giving the bar two ends
+			const category = swapAxes ? point[1] : point[0]
+			const key = `${s.stack}:${category}:${value < 0 ? 'below' : 'above'}`
+			stackTotals[key] = (stackTotals[key] || 0) + value
+		})
+	})
+
+	return [...values, ...Object.values(stackTotals)]
+}
+
+// an empty cell is drawn as a gap, not as a zero, so it is not a plotted number
+function toPlottedNumber(value: any) {
+	if (value === null || value === undefined || value === '') return undefined
+	const number = Number(value)
+	return isNaN(number) ? undefined : number
+}
+
+function getStatisticValue(statistic: ReferenceLine['statistic'], values: number[]) {
+	if (!values.length) return undefined
+	if (statistic === 'min') return Math.min(...values)
+	if (statistic === 'max') return Math.max(...values)
+	if (statistic === 'average') return values.reduce((a, b) => a + b, 0) / values.length
+	if (statistic !== 'median') return undefined
+
+	const sorted = [...values].sort((a, b) => a - b)
+	const mid = Math.floor(sorted.length / 2)
+	return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+}
+
+// A 'y' line is horizontal (at a measure value); an 'x' line is vertical (at a
+// category/date value). `swapAxes` (Row chart) flips which ECharts axis each maps to.
+function getReferenceMarkLine(
+	reference_lines: ReferenceLine[] | undefined,
+	plottedValues: number[],
+	swapAxes = false,
+) {
+	if (!reference_lines?.length) return undefined
+
+	const data = reference_lines
+		.map((line) => {
+			const onValueAxis = (line.axis || 'y') === 'y'
+			const statistic = onValueAxis ? line.statistic : undefined
+			const value = statistic ? getStatisticValue(statistic, plottedValues) : line.value
+			if (value === undefined || value === null || value === '') return undefined
+
+			// the value axis is yAxis normally, but becomes xAxis when axes are swapped
+			const axisKey = onValueAxis === !swapAxes ? 'yAxis' : 'xAxis'
+			const rawValue = onValueAxis ? Number(value) : value
+			// a category value left on a line that moved to the value axis is not plottable
+			if (typeof rawValue === 'number' && isNaN(rawValue)) return undefined
+			// a neutral gray by default, so a reference line doesn't read as another measure
+			const color = line.color || '#6b7280'
+
+			const entry: any = {
+				[axisKey]: rawValue,
+				lineStyle: {
+					type: line.dashed ? 'dashed' : 'solid',
+					width: 1.5,
+					color,
+				},
+			}
+			// a fixed line shows its number in the value box; a statistic line has none,
+			// so the label carries the number the line was drawn at
+			const label = line.label || (statistic ? getShortNumber(Number(value), 1) : '')
+			if (label) {
+				entry.label = {
+					show: true,
+					position: 'insideEndTop',
+					formatter: label,
+					color,
+				}
+			}
+			return entry
+		})
+		.filter(Boolean)
+
+	if (!data.length) return undefined
+
+	return {
+		silent: true,
+		symbol: 'none',
+		data,
 	}
 }
 
@@ -542,95 +724,194 @@ function getDonutChartData(
 
 export function getFunnelChartOptions(config: FunnelChartConfig, result: QueryResult) {
 	const rows = result.rows
+	const show_percentage = config.show_percentage ?? true
 
-	const labelColumn = config.label_column.dimension_name
-	const valueColumn = config.value_column.measure_name
-	const labelPosition = config.label_position || 'left'
+	// Measures mode: each measure is a stage. The data_query aggregates them with
+	// no group-by, so the result is a single row with one column per measure.
+	const measures = config.measures?.filter((m) => m.measure_name)
 
-	const labels = rows.map((r) => r[labelColumn])
-	const values = rows.map((r) => r[valueColumn])
+	let categories: string[]
+	let dataValues: number[]
+	let seriesName: string
 
-	let colors = getGradientColors('blue')
+	if (measures?.length) {
+		const row = rows[0] || {}
+		categories = measures.map((m) => m.measure_name)
+		dataValues = measures.map((m) => Number(row[m.measure_name]) || 0)
+		seriesName = 'Funnel'
+	} else {
+		const labelColumn = config.label_column?.dimension_name as string
+		const valueColumn = config.value_column?.measure_name as string
+		categories = rows.map((r) => r[labelColumn] as string)
+		dataValues = rows.map((r) => r[valueColumn] as number)
+		seriesName = valueColumn
+	}
+
+	const count = dataValues.length
+	const colors = Array.from({ length: count }, (_, i) => {
+		const ratio = count === 1 ? 0 : i / (count - 1)
+		const l = 52 + (82 - 52) * ratio
+		return `hsl(208 67.9% ${l.toFixed(1)}%)`
+	})
+
+	const maxDataValue = Math.max(...dataValues)
+	const maxValue = maxDataValue * 1.05
+	// Square-root scaling: compresses large values and preserves visual gap between small ones
+	const visualValues = dataValues.map((v) =>
+		maxDataValue * Math.sqrt((v as number) / maxDataValue),
+	)
 
 	return {
 		animation: true,
 		animationDuration: 300,
-		color: colors,
+		grid: {
+			left: 16,
+			right: 16,
+			top: 66,
+			bottom: 16,
+		},
+		tooltip: {
+			show: true,
+			trigger: 'item',
+			confine: true,
+			appendToBody: false,
+			formatter: (params: any) => {
+				const value = formatNumber(params.value)
+				const pct =
+					show_percentage && dataValues[0] > 0
+						? ` (${((params.value / dataValues[0]) * 100).toFixed(0)}%)`
+						: ''
+				return `
+					<div class="flex items-center justify-between gap-5">
+						<div>${params.name}</div>
+						<div class="font-bold">${value}${pct}</div>
+					</div>`
+			},
+			backgroundColor: '#fff',
+			borderColor: '#E5E7EB',
+			borderWidth: 1,
+			padding: [8, 12],
+			textStyle: {
+				color: '#111827',
+				fontSize: 13,
+			},
+			extraCssText:
+				'box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); border-radius: 8px;',
+		},
+		xAxis: {
+			type: 'category',
+			data: categories,
+			boundaryGap: true,
+			show: false,
+		},
+		yAxis: {
+			type: 'value',
+			show: false,
+			min: 0,
+			max: maxValue,
+		},
 		series: [
 			{
-				name: 'Funnel',
-				type: 'funnel',
-				orient: 'vertical',
-				funnelAlign: 'center',
-				top: 'center',
-				left: 'center',
-				width: '55%',
-				height: '75%',
-				minSize: '10px',
-				maxSize: '100%',
-				sort: 'descending',
-				label: {
-					show: true,
-					// position doesn't have any effect
-					// it is mapped here to re-render when the label position changes
-					// because the label layout function is not changing when the label position changes
-					// and so the chart doesn't re-render
-					position: labelPosition,
-					color: '#565656',
-					lineHeight: 16,
-					padding: [0, 5, 0, 0],
-					formatter: (params: any) => {
-						const index = labels.indexOf(params.name)
-						const percentage = Number((values[index] / values[0]) * 100).toFixed(0)
-						const value = getShortNumber(values[index], 2)
-						return `${params.name}\n${value} (${percentage}%)`
-					},
-				},
-				labelLine: { show: false },
-				labelLayout(params: any) {
-					const leftPos = params.rect.x - 15
-					const rightPos = params.rect.x + params.rect.width + 15
-
-					if (labelPosition === 'left') {
-						return {
-							x: leftPos,
-							align: 'right',
-						}
-					}
-					if (labelPosition === 'right') {
-						return {
-							x: rightPos,
-							align: 'left',
-						}
-					}
-					if (labelPosition === 'alternate') {
-						return {
-							x: params.dataIndex % 2 === 0 ? leftPos : rightPos,
-							align: params.dataIndex % 2 === 0 ? 'right' : 'left',
-						}
-					}
-				},
-				gap: 6,
-				data: values.map((value, index) => ({
-					name: labels[index],
-					value: value,
-					itemStyle: {
-						color: colors[index],
-						borderColor: colors[index],
-						borderWidth: 4,
-						borderCap: 'round',
-						borderJoin: 'round',
-					},
-					emphasis: {
-						itemStyle: {
-							color: colors[index],
-							borderColor: colors[index],
-							borderWidth: 6,
-							borderCap: 'round',
-							borderJoin: 'round',
-						},
-					},
+				type: 'custom',
+				name: seriesName,
+				emphasis: { disabled: true },
+				data: dataValues.map((val, i) => ({
+					name: categories[i],
+					value: val,
+					itemStyle: { color: colors[i % colors.length] },
 				})),
+				renderItem: (params: any, api: any) => {
+					const i = params.dataIndex
+					const val = dataValues[i] as number
+					const visualVal = visualValues[i]
+					// slope target: top of next bar, or taper last bar slightly
+					const nextVisual =
+						i < visualValues.length - 1
+							? visualValues[i + 1]
+							: Math.max(visualVal - maxDataValue * 0.06, 0)
+
+					const width = api.size([1, 0])[0]
+					const cx = api.coord([params.dataIndex, 0])[0]
+					const x = cx - width / 2
+					const nextX = cx + width / 2
+
+					const y1 = api.coord([0, visualVal])[1]
+					const y2 = api.coord([0, nextVisual])[1]
+					const yBottom = api.coord([0, 0])[1]
+
+					const r = 8
+					const m = (y2 - y1) / (nextX - x)
+
+					const pctText =
+						show_percentage && dataValues[0] > 0
+							? ` (${((val / dataValues[0]) * 100).toFixed(0)}%)`
+							: ''
+					const valueText = `${getShortNumber(val, 2)}${pctText}`
+
+					return {
+						type: 'group',
+						children: [
+							{
+								type: 'path',
+								shape: {
+									pathData: `M ${x} ${yBottom} L ${x} ${y1 + r} Q ${x} ${y1} ${x + r} ${y1 + m * r} L ${nextX - r} ${y2 - m * r} Q ${nextX} ${y2} ${nextX} ${y2 + r} L ${nextX} ${yBottom} Z`,
+								},
+								style: {
+									fill: colors[params.dataIndex % colors.length],
+								},
+								emphasis: {
+									style: {
+										fill: colors[params.dataIndex % colors.length],
+									},
+								},
+							},
+							{
+								type: 'text',
+								x: params.dataIndex === 0 ? x : x + 16,
+								y: 8,
+								style: {
+									text: valueText,
+									fill: '#111827',
+									fontSize: 16,
+									fontWeight: 500,
+									textVerticalAlign: 'top',
+									width: width - 32,
+									overflow: 'truncate',
+								},
+							},
+							{
+								type: 'text',
+								x: params.dataIndex === 0 ? x : x + 16,
+								y: 32,
+								style: {
+									text: categories[params.dataIndex] || '',
+									fill: '#6b7280',
+									fontSize: 12,
+									textVerticalAlign: 'top',
+									width: width - 32,
+									overflow: 'truncate',
+								},
+							},
+							...(params.dataIndex < dataValues.length - 1
+								? [
+										{
+											type: 'line',
+											shape: {
+												x1: nextX,
+												y1: 0,
+												x2: nextX,
+												y2: api.getHeight(),
+											},
+											style: {
+												stroke: '#E5E7EB',
+												lineWidth: 1,
+											},
+										},
+									]
+								: []),
+						],
+					}
+				},
 			},
 		],
 	}
@@ -1243,6 +1524,25 @@ export function handleOldYAxisConfig(old_y_axis: any): AxisChartConfig['y_axis']
 		}
 	}
 	return old_y_axis
+}
+
+// Every chart type reads a fixed set of slots off the config, and the validator and the
+// option builders reach into them without guarding. A type switch replaces the config
+// wholesale, so the incoming type's slots have to exist before anything reads them.
+export function ensureConfigSlots(config: any, chart_type: string) {
+	if (AXIS_CHARTS.includes(chart_type)) {
+		config.x_axis = config.x_axis || {}
+		config.x_axis.dimension = config.x_axis.dimension || {}
+		config.y_axis = config.y_axis || {}
+		config.y_axis.series = config.y_axis.series || []
+	}
+
+	if (chart_type === 'Map') {
+		config.location_column = config.location_column || {}
+		config.value_column = config.value_column || {}
+	}
+
+	return config
 }
 
 export function setDimensionNames(config: any) {

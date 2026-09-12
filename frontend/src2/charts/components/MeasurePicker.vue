@@ -20,7 +20,14 @@ const emit = defineEmits({ remove: () => true })
 const props = defineProps<{
 	label?: string
 	columnOptions: ColumnOption[]
+	enableFormat?: boolean
 }>()
+
+const formatOptions = [
+	{ label: __('Normal'), value: '' },
+	{ label: __('Percent'), value: 'percent' },
+	{ label: __('Currency'), value: 'currency' },
+]
 
 // True when at least one available column is a pre-aggregated measure (i.e. it
 // came from a summarize/pivot_wider step in the source query). In this case we
@@ -63,11 +70,28 @@ const expressionMeasure = computed<ExpressionMeasure | undefined>({
 })
 
 const searchQuery = ref('')
+const aggregationPrefixes = aggregations.map((aggregation) => `${aggregation}_`)
+const lastAutoMeasureName = ref('')
 
 // Tracks whether the user manually clicked "back" (ChevronLeft) to change the
 // aggregation. When true, we don't auto-fill the aggregation so the user can
 // choose a different function.
 const userResetAggregation = ref(false)
+
+function isPreAggregatedMeasure(columnName: string) {
+	return (
+		props.columnOptions.find((option) => option.value === columnName)?.is_measure ||
+		aggregationPrefixes.some((prefix) => columnName.startsWith(prefix))
+	)
+}
+
+function getAutoMeasureName(columnMeasure: ColumnMeasure) {
+	if (!columnMeasure.aggregation || !columnMeasure.column_name) return ''
+
+	return isPreAggregatedMeasure(columnMeasure.column_name)
+		? columnMeasure.column_name
+		: `${columnMeasure.aggregation}_of_${columnMeasure.column_name}`
+}
 
 watchEffect(() => {
 	if (!columnMeasure.value && !expressionMeasure.value) {
@@ -93,22 +117,15 @@ watchEffect(() => {
 	const cm = columnMeasure.value
 	if (!cm) return
 
+	const autoMeasureName = getAutoMeasureName(cm)
 	const hasDefaultLabel =
 		!cm.measure_name ||
-		cm.measure_name.includes(`${cm.aggregation}_`) ||
-		cm.measure_name.includes(cm.column_name)
+		cm.measure_name === autoMeasureName ||
+		cm.measure_name === lastAutoMeasureName.value
 
-	if (cm.aggregation && cm.column_name && hasDefaultLabel) {
-		// If the column is already a pre-aggregated measure (flagged via is_measure on
-		// the column option, or its name starts with an aggregation prefix), keep the
-		// column name as-is rather than wrapping it as e.g. "sum_of_total_requests".
-		const aggregationPrefixes = aggregations.map((a) => `${a}_`)
-		const columnIsAlreadyMeasure =
-			props.columnOptions.find((o) => o.value === cm.column_name)?.is_measure ||
-			aggregationPrefixes.some((prefix) => cm.column_name.startsWith(prefix))
-		cm.measure_name = columnIsAlreadyMeasure
-			? cm.column_name
-			: `${cm.aggregation}_of_${cm.column_name}`
+	if (autoMeasureName && hasDefaultLabel) {
+		cm.measure_name = autoMeasureName
+		lastAutoMeasureName.value = autoMeasureName
 	}
 })
 
@@ -118,6 +135,7 @@ function updateMeasure(measureExpression: ExpressionMeasure) {
 		expression: measureExpression.expression,
 		measure_name: measureExpression.measure_name,
 		data_type: measureExpression.data_type,
+		format: measure.value.format,
 	}
 	showMeasureDialog.value = false
 }
@@ -151,6 +169,14 @@ const filteredColumnOptions = computed(() => {
 	return columnOptions.value.filter((option) => option.label.toLowerCase().includes(query))
 })
 
+// a currency code is text, so only text columns are offered
+const currencyColumnOptions = computed(() => [
+	{ label: __('Site currency'), value: '' },
+	...props.columnOptions
+		.filter((column) => FIELDTYPES.TEXT.includes(column.data_type))
+		.map((column) => ({ label: column.label, value: column.value })),
+])
+
 function getAggregationLabel(aggregation: AggregationType) {
 	return aggregationOptions.find((option) => option.value === aggregation)?.label
 }
@@ -173,39 +199,48 @@ function resetAggregation() {
 }
 
 const label = ref(measure.value.measure_name)
+
+function handleRemove() {
+	measure.value = {
+		column_name: '',
+		data_type: 'Decimal',
+		measure_name: '',
+		aggregation: '',
+	}
+	emit('remove')
+}
 </script>
 
 <template>
 	<div class="flex items-end gap-1 overflow-hidden">
 		<div class="flex-1 overflow-hidden">
-			<Popover>
-				<template #target="{ togglePopover, isOpen }">
+			<Popover bare match-trigger-width>
+				<template #trigger>
 					<div class="w-full space-y-1.5">
-						<div v-if="props.label" class="text-xs text-gray-600">
+						<div v-if="props.label" class="text-xs text-ink-gray-5">
 							{{ props.label }}
 						</div>
 						<button
-							class="flex h-7 w-full items-center justify-between gap-2 rounded bg-gray-100 py-1 px-2 text-base transition-colors hover:bg-gray-200 focus:ring-2 focus:ring-gray-400"
-							@click="() => togglePopover()"
+							class="flex h-7 w-full items-center justify-between gap-2 rounded bg-surface-gray-2 py-1 px-2 text-base transition-colors hover:bg-surface-gray-3 focus:ring-2 focus:ring-outline-gray-3"
 						>
 							<div class="flex flex-1 items-center gap-2 overflow-hidden truncate">
 								<span v-if="measure.measure_name">
 									{{ measure.measure_name }}
 								</span>
-								<span v-else class="text-gray-500"> Select a column </span>
+								<span v-else class="text-ink-gray-4"> Select a column </span>
 							</div>
 						</button>
 					</div>
 				</template>
 
-				<template #body="{ isOpen, togglePopover }">
+				<template #default="{ isOpen, toggle: togglePopover }">
 					<div
-						class="relative mt-1 overflow-hidden rounded-lg bg-white p-1.5 text-base shadow-2xl"
+						class="relative mt-1 overflow-hidden rounded-lg bg-surface-base p-1.5 text-base shadow-2xl"
 					>
 						<template v-if="columnMeasure && !expressionMeasure">
 							<span
 								v-if="!columnMeasure.aggregation"
-								class="block px-1.5 py-0.5 text-p-xs text-gray-600"
+								class="block px-1.5 py-0.5 text-p-xs text-ink-gray-5"
 							>
 								Select a Function
 							</span>
@@ -216,12 +251,12 @@ const label = ref(measure.value.measure_name)
 								<Button class="!h-6 !w-6" @click.prevent.stop="resetAggregation">
 									<template #icon>
 										<ChevronLeft
-											class="h-4 w-4 text-gray-700"
+											class="h-4 w-4 text-ink-gray-6"
 											stroke-width="1.5"
 										/>
 									</template>
 								</Button>
-								<span class="block px-1.5 py-0.5 text-p-xs text-gray-600">
+								<span class="block px-1.5 py-0.5 text-p-xs text-ink-gray-5">
 									{{ getAggregationLabel(columnMeasure.aggregation) }}
 								</span>
 							</div>
@@ -230,7 +265,7 @@ const label = ref(measure.value.measure_name)
 									<div
 										v-for="option in aggregationOptions"
 										:key="option.value"
-										class="flex h-7 flex-shrink-0 cursor-pointer items-center justify-between rounded px-2.5 text-base hover:bg-gray-100"
+										class="flex h-7 flex-shrink-0 cursor-pointer items-center justify-between rounded px-2.5 text-base hover:bg-surface-gray-2"
 										@click.prevent.stop="
 											() => {
 												if (!columnMeasure) return
@@ -242,7 +277,7 @@ const label = ref(measure.value.measure_name)
 										<span>{{ option.label }}</span>
 										<span v-if="option.value === columnMeasure.aggregation">
 											<Check
-												class="h-4 w-4 text-gray-700"
+												class="h-4 w-4 text-ink-gray-6"
 												stroke-width="1.5"
 											/>
 										</span>
@@ -250,7 +285,7 @@ const label = ref(measure.value.measure_name)
 								</template>
 
 								<template v-if="columnMeasure.aggregation">
-									<div class="sticky top-0 bg-white space-y-1 p-1">
+									<div class="sticky top-0 bg-surface-base space-y-1 p-1">
 										<TextInput
 											v-model="searchQuery"
 											placeholder="Search..."
@@ -260,7 +295,7 @@ const label = ref(measure.value.measure_name)
 									<div
 										v-for="option in filteredColumnOptions"
 										:key="option.value"
-										class="flex h-7 flex-shrink-0 cursor-pointer items-center justify-between rounded px-2.5 text-base hover:bg-gray-100"
+										class="flex h-7 flex-shrink-0 cursor-pointer items-center justify-between rounded px-2.5 text-base hover:bg-surface-gray-2"
 										@click.prevent.stop="
 											() => {
 												;(measure as ColumnMeasure).column_name =
@@ -274,7 +309,7 @@ const label = ref(measure.value.measure_name)
 										<span>{{ option.label }}</span>
 										<span v-if="option.value === columnMeasure.column_name">
 											<Check
-												class="h-4 w-4 text-gray-700"
+												class="h-4 w-4 text-ink-gray-6"
 												stroke-width="1.5"
 											/>
 										</span>
@@ -296,7 +331,7 @@ const label = ref(measure.value.measure_name)
 								<template #prefix>
 									<component
 										:is="expressionMeasure ? Edit : Plus"
-										class="h-4 w-4 text-gray-700"
+										class="h-4 w-4 text-ink-gray-6"
 										stroke-width="1.5"
 									/>
 								</template>
@@ -306,15 +341,15 @@ const label = ref(measure.value.measure_name)
 				</template>
 			</Popover>
 		</div>
-		<Popover v-if="measure.measure_name" placement="bottom-end">
-			<template #target="{ togglePopover }">
-				<Button @click="togglePopover">
+		<Popover v-if="measure.measure_name" side="bottom" align="end">
+			<template #trigger>
+				<Button>
 					<template #icon>
-						<Settings class="h-4 w-4 text-gray-700" stroke-width="1.5" />
+						<Settings class="h-4 w-4 text-ink-gray-6" stroke-width="1.5" />
 					</template>
 				</Button>
 			</template>
-			<template #body-main>
+			<template #default>
 				<div class="flex w-[14rem] flex-col gap-2 p-2">
 					<InlineFormControlLabel label="Label">
 						<TextInput
@@ -326,13 +361,37 @@ const label = ref(measure.value.measure_name)
 						/>
 					</InlineFormControlLabel>
 
+					<InlineFormControlLabel v-if="props.enableFormat" label="Format">
+						<FormControl
+							type="select"
+							:options="formatOptions"
+							:modelValue="measure.format || ''"
+							@update:modelValue="measure.format = $event || undefined"
+						/>
+					</InlineFormControlLabel>
+
+					<InlineFormControlLabel
+						v-if="props.enableFormat && measure.format === 'currency'"
+						:label="__('Currency from')"
+					>
+						<FormControl
+							type="select"
+							:options="currencyColumnOptions"
+							:modelValue="measure.currency_column || ''"
+							@update:modelValue="measure.currency_column = $event || undefined"
+						/>
+					</InlineFormControlLabel>
+
 					<slot name="config-fields" />
 
 					<div class="flex gap-1">
-						<Button class="w-full" @click="emit('remove')" theme="red">
-							<template #prefix>
-								<XIcon class="h-4 w-4 text-red-700" stroke-width="1.5" />
-							</template>
+						<Button
+							class="w-full"
+							variant="outline"
+							theme="red"
+							iconLeft="lucide-x"
+							@click="handleRemove"
+						>
 							Remove
 						</Button>
 					</div>
@@ -341,7 +400,7 @@ const label = ref(measure.value.measure_name)
 		</Popover>
 		<Button v-else @click="emit('remove')">
 			<template #icon>
-				<XIcon class="h-4 w-4 text-gray-700" stroke-width="1.5" />
+				<XIcon class="h-4 w-4 text-ink-gray-6" stroke-width="1.5" />
 			</template>
 		</Button>
 	</div>

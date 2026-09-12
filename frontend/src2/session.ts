@@ -9,13 +9,29 @@ type SessionUser = {
 	user_image: string
 	is_admin: boolean
 	is_user: boolean
-	country: string
+	can_download: boolean
 	locale: string
-	is_v2_instance: boolean
-	default_version: 'v3' | 'v2' | ''
 	has_desk_access?: boolean
 	has_demo_data: boolean
 	fiscal_year_start: string
+}
+
+// Settings of the site, not of whoever is reading it. A guest opening a public
+// dashboard gets these and nothing else, so a shared chart prints its amounts
+// the same way the workbook does.
+type CurrencySymbol = { symbol: string; symbol_on_right: boolean }
+type SiteInfo = {
+	country: string
+	// stands in for a measure that names no currency column
+	currency: string | null
+	// starts with the site currency; each result adds its codes
+	currency_symbols: Record<string, CurrencySymbol>
+}
+
+const emptySite: SiteInfo = {
+	country: '',
+	currency: null,
+	currency_symbols: {},
 }
 
 const emptyUser: SessionUser = {
@@ -26,22 +42,21 @@ const emptyUser: SessionUser = {
 	user_image: '',
 	is_admin: false,
 	is_user: false,
-	country: '',
+	can_download: true,
 	locale: 'en-US',
-	is_v2_instance: false,
-	default_version: '',
 	has_demo_data: false,
 	fiscal_year_start: '01-04-2020',
 }
 
 const session = reactive({
 	user: { ...emptyUser },
+	site: { ...emptySite },
 	initialized: false,
 	isLoggedIn: computed(() => false),
 	isAuthorized: computed(() => false),
 	initialize,
 	fetchSessionInfo,
-	updateDefaultVersion,
+	fetchSiteInfo,
 	login,
 	logout,
 	resetSession,
@@ -55,7 +70,9 @@ session.isAuthorized = computed(() => session.user.is_admin || session.user.is_u
 async function initialize(force: boolean = false) {
 	if (session.initialized && !force) return
 	Object.assign(session.user, getSessionFromCookies())
-	session.isLoggedIn && (await fetchSessionInfo())
+	// the site's own settings reach a guest too, so they are fetched apart from
+	// the user's, and alongside them rather than after
+	await Promise.all([fetchSiteInfo(), session.isLoggedIn ? fetchSessionInfo() : null])
 	session.initialized = true
 }
 
@@ -66,15 +83,15 @@ async function fetchSessionInfo() {
 		...userInfo,
 		is_admin: Boolean(userInfo.is_admin),
 		is_user: Boolean(userInfo.is_user),
-		is_v2_instance: Boolean(userInfo.is_v2_instance),
 		has_desk_access: Boolean(userInfo.has_desk_access),
 		has_demo_data: Boolean(userInfo.has_demo_data),
+		can_download: Boolean(userInfo.can_download),
 	})
 }
 
-function updateDefaultVersion(version: SessionUser['default_version']) {
-	session.user.default_version = version
-	return call('insights.api.update_default_version', { version })
+async function fetchSiteInfo() {
+	const siteInfo: SiteInfo = await call('insights.api.get_site_info')
+	Object.assign(session.site, siteInfo)
 }
 
 async function login(email: string, password: string) {

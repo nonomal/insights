@@ -1,7 +1,7 @@
 import { watchDebounced } from '@vueuse/core'
 import { __ } from '../translation'
-import domtoimage from 'dom-to-image'
 import { isEqual } from 'es-toolkit'
+import { toPng } from 'html-to-image'
 import { call, debounce } from 'frappe-ui'
 import { Socket } from 'socket.io-client'
 import {
@@ -17,6 +17,7 @@ import { getFormattedDate } from '../query/helpers'
 import session from '../session'
 import {
 	ColumnDataType,
+	DataFormat,
 	DropdownOption,
 	GroupedDropdownOption,
 	QueryResultColumn,
@@ -149,39 +150,60 @@ export function showErrorToast(err: Error, raise = true) {
 }
 
 export function downloadImage(element: HTMLElement, filename: string, scale = 2, options = {}) {
-	return domtoimage
-		.toPng(element, {
-			height: element.scrollHeight * scale,
-			width: element.scrollWidth * scale,
-			style: {
-				transform: 'scale(' + scale + ')',
-				transformOrigin: 'top left',
-				width: element.scrollWidth + 'px',
-				height: element.scrollHeight + 'px',
-			},
-			bgColor: 'white',
-			...options,
+	return toPng(element, {
+		width: element.scrollWidth,
+		height: element.scrollHeight,
+		pixelRatio: scale,
+		backgroundColor: 'white',
+		style: {
+			width: `${element.scrollWidth}px`,
+			height: `${element.scrollHeight}px`,
+			overflow: 'visible',
+		},
+		...options,
+	})
+		.then((dataUrl) => {
+			const link = document.createElement('a')
+			link.download = filename
+			link.href = dataUrl
+			link.click()
 		})
-		.then(function (dataUrl: string) {
-			const img = new Image()
-			img.src = dataUrl
-			img.onload = async () => {
-				const link = document.createElement('a')
-				link.download = filename
-				link.href = img.src
-				link.click()
-			}
-		})
+		.catch((err) => showErrorToast(err, false))
 }
 
 export function formatNumber(number: number, precision = 0) {
 	if (isNaN(number)) return number
 	precision = precision || guessPrecision(number)
-	const locale = session.user?.country == 'India' ? 'en-IN' : session.user?.locale
+	const locale = session.site?.country == 'India' ? 'en-IN' : session.user?.locale
 	return new Intl.NumberFormat(locale || 'en-US', {
 		minimumFractionDigits: precision,
 		maximumFractionDigits: precision,
 	}).format(number)
+}
+
+export type FormatUnits = {
+	// what the stored number must be multiplied by to reach the printed one
+	scale: number
+	prefix: string
+	suffix: string
+}
+
+const NO_UNITS: FormatUnits = { scale: 1, prefix: '', suffix: '' }
+
+// A measure states its unit once, and every reading of it prints that unit the
+// same way. The symbol sits where fmt_money puts it, so Insights and desk agree.
+export function getFormatUnits(format?: DataFormat, code?: string | null): FormatUnits {
+	if (format === 'percent') {
+		return { scale: 100, prefix: '', suffix: '%' }
+	}
+	if (format !== 'currency') return NO_UNITS
+
+	const resolved = code === undefined ? session.site?.currency : code
+	const currency = resolved ? session.site?.currency_symbols?.[resolved] : undefined
+	if (!currency?.symbol) return NO_UNITS
+	return currency.symbol_on_right
+		? { scale: 1, prefix: '', suffix: ` ${currency.symbol}` }
+		: { scale: 1, prefix: `${currency.symbol} `, suffix: '' }
 }
 
 export function guessPrecision(number: number) {
@@ -195,7 +217,7 @@ export function guessPrecision(number: number) {
 
 
 export function getShortNumber(number: number, precision = 0) {
-	const locale = session.user?.country == 'India' ? 'en-IN' : session.user?.locale
+	const locale = session.site?.country == 'India' ? 'en-IN' : session.user?.locale
 	let formatted = new Intl.NumberFormat(locale || 'en-US', {
 		notation: 'compact',
 		maximumFractionDigits: precision,
@@ -433,13 +455,16 @@ export function createHeaders(columns: QueryResultColumn[]) {
 		const areDates = areValidDates(headerRow.map((header) => header.label))
 		if (!areDates) continue
 
+		const areFirstOfFiscalYear = areFirstDayOfFiscalYear(headerRow.map((header) => header.label))
 		const areFirstOfYear = areFirstDayOfYear(headerRow.map((header) => header.label))
 		const areFirstOfMonth = areFirstDayOfMonth(headerRow.map((header) => header.label))
 
 		for (let header of headerRow) {
 			if (!isValidDate(header.label)) continue
 
-			if (areFirstOfYear) {
+			if (areFirstOfFiscalYear) {
+				header.label = getFormattedDate(header.label, 'fiscal_year')
+			} else if (areFirstOfYear) {
 				header.label = getFormattedDate(header.label, 'year')
 			} else if (areFirstOfMonth) {
 				header.label = getFormattedDate(header.label, 'month')
@@ -450,6 +475,24 @@ export function createHeaders(columns: QueryResultColumn[]) {
 	}
 
 	return groupedHeaders
+}
+
+function areFirstDayOfFiscalYear(data: string[]) {
+	const fiscalYearStart = session.user?.fiscal_year_start
+	if (!fiscalYearStart) return false
+
+	const start = new Date(fiscalYearStart)
+	const fiscalStartMonth = start.getMonth()
+	const fiscalStartDay = start.getDate()
+
+	// when the fiscal year aligns with the calendar year, defer to year formatting
+	if (fiscalStartMonth === 0 && fiscalStartDay === 1) return false
+
+	const firstDayOfFiscalYear = (date: string) => {
+		const d = new Date(date)
+		return d.getMonth() === fiscalStartMonth && d.getDate() === fiscalStartDay
+	}
+	return data.map(firstDayOfFiscalYear).filter(Boolean).length / data.length >= 0.5
 }
 
 function areFirstDayOfMonth(data: string[]) {

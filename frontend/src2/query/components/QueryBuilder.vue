@@ -3,7 +3,8 @@ import { inject, onBeforeUnmount } from 'vue'
 import { Query } from '../query'
 import QueryBuilderSourceSelector from './QueryBuilderSourceSelector.vue'
 import QueryBuilderTable from './QueryBuilderTable.vue'
-import QueryBuilderToolbar from './QueryBuilderToolbar.vue'
+import QueryExecutionStatus from './QueryExecutionStatus.vue'
+import QueryToolbar from './QueryToolbar.vue'
 import QueryInfo from './QueryInfo.vue'
 import QueryOperations from './QueryOperations.vue'
 import { useMagicKeys } from '@vueuse/core'
@@ -30,11 +31,15 @@ onBeforeUnmount(() => {
 		<div class="relative flex h-full flex-1 flex-col gap-3 overflow-hidden p-4">
 			<QueryBuilderSourceSelector v-if="!query.doc.operations.length" />
 			<template v-else>
-				<QueryBuilderToolbar></QueryBuilderToolbar>
+				<QueryToolbar>
+					<QueryExecutionStatus />
+				</QueryToolbar>
 				<QueryBuilderTable></QueryBuilderTable>
 			</template>
 		</div>
-		<div class="relative flex h-full w-[19rem] flex-shrink-0 flex-col overflow-y-auto bg-white">
+		<div
+			class="relative flex h-full w-[19rem] flex-shrink-0 flex-col overflow-y-auto bg-surface-base"
+		>
 			<QueryInfo />
 			<QueryOperations />
 		</div>

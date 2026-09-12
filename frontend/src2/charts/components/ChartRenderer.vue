@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import ChartSectionEmptySvg from '@/query/ChartSectionEmptySvg.vue'
 import { Button } from 'frappe-ui'
-import { Maximize, XIcon, RefreshCcw } from 'lucide-vue-next'
+import { Maximize, XIcon, RefreshCcw, TriangleAlert } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { titleCase } from '../../helpers'
 import { FIELDTYPES } from '../../helpers/constants.ts'
@@ -15,6 +14,8 @@ import {
 	MapChartConfig,
 	NumberChartConfig,
 	SankeyChartConfig,
+	AXIS_CHARTS,
+	AxisChartConfig,
 } from '../../types/chart.types'
 import { Chart } from '../chart'
 import {
@@ -25,8 +26,10 @@ import {
 	getLineChartOptions,
 	getMapChartOptions,
 	getSankeyChartOptions,
+	getAxisChartRowOrder,
 } from '../helpers'
 import BaseChart from './BaseChart.vue'
+import ChartSectionEmptySvg from './ChartSectionEmptySvg.vue'
 import DrillDown from './DrillDown.vue'
 import NumberChart from './NumberChart.vue'
 import TableChart from './TableChart.vue'
@@ -42,6 +45,9 @@ const loading = computed(
 )
 
 const eChartOptions = computed(() => {
+	// the result outlives a chart type switch, so without this the option builders
+	// would run against the incoming type's still-empty config
+	if (!props.chart.isConfigValid) return
 	if (!result.value.columns?.length) return
 	if (chart_type.value === 'Bar' || chart_type.value === 'Row') {
 		return getBarChartOptions(
@@ -146,9 +152,13 @@ function handleMapChartClick(params: any) {
 function handleGeneralChartClick(params: any) {
 	let dataIndex = params.dataIndex
 
-	// Adjust index for Row charts (they're displayed in reverse order)
-	if (chart_type.value === 'Row') {
-		dataIndex = result.value.formattedRows.length - 1 - dataIndex
+	if (AXIS_CHARTS.includes(chart_type.value)) {
+		const rowOrder = getAxisChartRowOrder(
+			result.value.rows,
+			(config.value as AxisChartConfig).x_axis,
+			chart_type.value === 'Row',
+		)
+		dataIndex = rowOrder[dataIndex]
 	}
 
 	const row = result.value.formattedRows[dataIndex]
@@ -185,24 +195,27 @@ const showExpandedChartDialog = ref(false)
 	<div class="group relative h-full w-full">
 		<BaseChart
 			v-if="!loading && eChartOptions"
-			class="rounded bg-white py-1 shadow"
+			class="rounded bg-surface-base py-1 border border-outline-gray-2"
 			:class="props.chart.doc.chart_type == 'Map' ? '[&>div:last-child]:p-4' : ''"
 			:title="props.chart.doc.title"
 			:options="eChartOptions"
 			:onClick="onChartElementClick"
 		/>
 		<NumberChart
-			v-else-if="!loading && chart_type == 'Number'"
+			v-else-if="!loading && chart_type == 'Number' && !chart.dataQuery.executionError"
 			:config="config as NumberChartConfig"
 			:result="result"
 			@drill-down="onNumberChartDrillDown"
 		/>
 		<TableChart v-else-if="chart_type == 'Table'" :chart="props.chart" />
 
-		<div v-else class="flex h-full flex-1 flex-col items-center justify-center rounded border">
+		<div
+			v-else
+			class="flex h-full flex-1 flex-col items-center justify-center rounded border border-outline-gray-2"
+		>
 			<template v-if="loading">
-				<LoadingIndicator class="h-5 w-5 text-gray-500" />
-				<p class="mt-1.5 text-gray-500">Loading data...</p>
+				<LoadingIndicator class="h-5 w-5 text-ink-gray-4" />
+				<p class="mt-1.5 text-ink-gray-4">Loading data...</p>
 			</template>
 			<template v-else-if="chart.dataQuery.isServerBusy">
 				<Button
@@ -211,13 +224,22 @@ const showExpandedChartDialog = ref(false)
 					label="Server is busy, click to retry"
 				>
 					<template #prefix>
-						<RefreshCcw class="h-4 w-4 text-gray-700" stroke-width="1.5" />
+						<RefreshCcw class="h-4 w-4 text-ink-gray-6" stroke-width="1.5" />
 					</template>
 				</Button>
 			</template>
+			<template v-else-if="chart.dataQuery.executionError">
+				<TriangleAlert class="h-5 w-5 text-ink-red-4" stroke-width="1.5" />
+				<p
+					class="mt-1.5 line-clamp-3 px-4 text-center font-mono text-xs leading-5 text-ink-red-4"
+					:title="chart.dataQuery.executionError"
+				>
+					{{ chart.dataQuery.executionError }}
+				</p>
+			</template>
 			<template v-else>
 				<ChartSectionEmptySvg></ChartSectionEmptySvg>
-				<p class="text-gray-500">
+				<p class="text-ink-gray-4">
 					Pick a chart type and configure options to see the chart here
 				</p>
 			</template>
@@ -225,10 +247,11 @@ const showExpandedChartDialog = ref(false)
 
 		<div
 			v-if="!props.hideMaximize && chart && chart.doc.chart_type !== 'Number'"
-			class="absolute top-1.5 right-1.5 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+			class="absolute top-0 right-0 opacity-0 transition-opacity group-hover:opacity-100"
+			:class="chart_type == 'Table' ? 'p-1.5' : 'p-2'"
 		>
 			<Button variant="ghost" @click="showExpandedChartDialog = true">
-				<Maximize class="h-3.5 w-3.5 text-gray-700" stroke-width="1.5" />
+				<Maximize class="h-3.5 w-3.5 text-ink-gray-6" stroke-width="1.5" />
 			</Button>
 		</div>
 	</div>
@@ -241,21 +264,14 @@ const showExpandedChartDialog = ref(false)
 	>
 	</DrillDown>
 
-	<Dialog
-		v-if="chart"
-		v-model="showExpandedChartDialog"
-		:options="{
-			size: '7xl',
-			title: chart?.doc.title,
-		}"
-	>
-		<template #body>
+	<Dialog v-if="chart" v-model:open="showExpandedChartDialog" size="7xl" bare>
+		<template #default>
 			<div class="h-[85vh] w-full">
 				<ChartRenderer v-if="chart" :chart="chart" :hide-maximize="true" />
 				<div class="absolute top-2 right-2">
 					<Button variant="ghost" @click="showExpandedChartDialog = false">
 						<template #icon>
-							<XIcon class="size-4 text-gray-700" />
+							<XIcon class="size-4 text-ink-gray-6" />
 						</template>
 					</Button>
 				</div>

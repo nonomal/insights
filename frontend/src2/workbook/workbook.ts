@@ -1,6 +1,5 @@
 import { call } from 'frappe-ui'
 import { __ } from '../translation'
-// @ts-ignore
 import { useTelemetry } from 'frappe-ui/frappe'
 import { computed, InjectionKey, reactive, toRefs } from 'vue'
 import useChart, { newChart } from '../charts/chart'
@@ -201,7 +200,8 @@ function makeWorkbook(name: string) {
 				user_permissions: permissions.user_permissions.map((p: any) => {
 					return {
 						email: p.user,
-						full_name: p.full_name,
+						full_name: p.full_name || p.user,
+						user_image: p.user_image,
 						access: p.read ? (p.write ? 'edit' : 'view') : undefined,
 					}
 				}),
@@ -226,7 +226,7 @@ function makeWorkbook(name: string) {
 					write: p.access === 'edit',
 				}
 			}),
-		}).catch(showErrorToast)
+		})
 	}
 
 	function duplicate() {
@@ -243,7 +243,10 @@ function makeWorkbook(name: string) {
 							message: __('Workbook duplicated successfully'),
 							variant: 'success',
 						})
-						window.location.href = `/insights/workbook/${name}`
+						window.location.href = router.resolve({
+							name: 'Workbook',
+							params: { workbook_name: name },
+						}).href
 					})
 					.catch(showErrorToast)
 			},

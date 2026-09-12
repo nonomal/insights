@@ -41,6 +41,15 @@ wheneverChanges(
 	{ deep: true },
 )
 
+const webhookError = computed(() => {
+	if (alert.doc.channel !== 'Webhook') return ''
+	const url = alert.doc.webhook_url?.trim()
+	if (!url) return __('Webhook URL is required')
+	if (!url.startsWith('https://')) return __('Webhook URL must use https://')
+	if (!alert.doc.webhook_token) return __('Token is required')
+	return ''
+})
+
 const isValidAlert = computed(() => {
 	if (!alert.doc.title) return false
 	if (!alert.doc.frequency) return false
@@ -48,6 +57,7 @@ const isValidAlert = computed(() => {
 	if (!alert.doc.channel) return false
 	if (alert.doc.channel === 'Email' && !alert.doc.recipients) return false
 	if (alert.doc.channel === 'Telegram' && !alert.doc.telegram_chat_id) return false
+	if (webhookError.value) return false
 	if (alert.doc.custom_condition && !alert.doc.condition) return false
 	if (!alert.doc.custom_condition && !filterCondition.left) return false
 	if (!alert.doc.custom_condition && !filterCondition.operator) return false
@@ -107,35 +117,33 @@ function toggleAlert() {
 
 <template>
 	<Dialog
-		v-model="show"
-		:disableOutsideClickToClose="alert.isdirty || alert.islocal"
-		:options="{
-			title: __('Setup Alert'),
-			size: '2xl',
-			actions: [
-				{
-					label: __('Send Test Alert'),
-					disabled: !isValidAlert || alert.loading || alert.saving,
-					loading: alert.loading,
-					onClick: testSendAlert,
-				},
-				{
-					label: alert.doc.disabled ? __('Enable Alert') : __('Disable Alert'),
-					disabled: alert.loading || alert.saving,
-					loading: alert.loading,
-					onClick: toggleAlert,
-				},
-				{
-					label: alert.islocal ? __('Create Alert') : __('Update Alert'),
-					variant: 'solid',
-					disabled: !isValidAlert || !alert.isdirty || alert.saving || alert.loading,
-					loading: alert.saving,
-					onClick: updateAlert,
-				},
-			],
-		}"
+		v-model:open="show"
+		:dismissible="!(alert.isdirty || alert.islocal)"
+		:title="__('Setup Alert')"
+		size="2xl"
+		:actions="[
+			{
+				label: __('Send Test Alert'),
+				disabled: !isValidAlert || alert.loading || alert.saving,
+				loading: alert.loading,
+				onClick: testSendAlert,
+			},
+			{
+				label: alert.doc.disabled ? __('Enable Alert') : __('Disable Alert'),
+				disabled: alert.loading || alert.saving,
+				loading: alert.loading,
+				onClick: toggleAlert,
+			},
+			{
+				label: alert.islocal ? __('Create Alert') : __('Update Alert'),
+				variant: 'solid',
+				disabled: !isValidAlert || !alert.isdirty || alert.saving || alert.loading,
+				loading: alert.saving,
+				onClick: updateAlert,
+			},
+		]"
 	>
-		<template #body-content>
+		<template #default>
 			<div class="flex flex-col gap-3 text-base">
 				<div class="flex gap-4">
 					<div class="flex flex-1 flex-col gap-3">
@@ -172,6 +180,7 @@ function toggleAlert() {
 							v-model="alert.doc.channel"
 							:options="[
 								{ label: __('Email'), value: 'Email' },
+								{ label: __('Webhook'), value: 'Webhook' },
 								// { label: 'Telegram', value: 'Telegram' },
 							]"
 						/>
@@ -189,6 +198,23 @@ function toggleAlert() {
 							v-model="alert.doc.telegram_chat_id"
 							:placeholder="__('e.g. 123456789')"
 						/>
+						<template v-if="alert.doc.channel === 'Webhook'">
+							<div class="flex flex-col gap-1.5">
+								<FormControl
+									type="text"
+									:label="__('Webhook URL')"
+									v-model="alert.doc.webhook_url"
+									:placeholder="__('e.g. https://example.com/hooks/insights')"
+								/>
+								<ErrorMessage v-if="webhookError" :message="webhookError" />
+							</div>
+							<FormControl
+								type="password"
+								:label="__('Token')"
+								v-model="alert.doc.webhook_token"
+								:placeholder="__('Sent as an Authorization: Bearer header')"
+							/>
+						</template>
 					</div>
 				</div>
 
@@ -246,7 +272,7 @@ Thanks,
 						`"
 					/>
 
-					<div class="mt-2 text-p-sm text-gray-600">
+					<div class="mt-2 text-p-sm text-ink-gray-5">
 						{{
 							__(
 								'You can use markdown to format the message. Use double asterisks (**) for bold text. You can use the following fields in the message:',

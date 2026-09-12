@@ -19,15 +19,19 @@ from insights.insights.doctype.insights_data_source_v3.ibis_utils import (
     IbisQueryBuilder,
     execute_ibis_query,
     get_columns_from_schema,
+    is_carried_currency_column,
+    is_hidden_column,
 )
 from insights.insights.query_utils import (
     extract_query_deps_from_operations,
     find_cycle,
     get_direct_dependencies,
+    referenced_queries,
     sync_query_references,
+    table_references,
     transitive_closure,
 )
-from insights.utils import deep_convert_dict_to_dict
+from insights.utils import as_text, deep_convert_dict_to_dict, get_currency_symbols
 
 
 class InsightsQueryv3(Document):
@@ -80,6 +84,20 @@ class InsightsQueryv3(Document):
 
     def validate(self):
         self._validate_no_circular_dependency()
+        self._validate_referenced_queries()
+
+    def _validate_referenced_queries(self):
+        """A query may only reference a query its author can read.
+
+        Only a newly added reference is checked, so an existing one stays saveable
+        by anyone who may already read this query.
+        """
+        from insights.permissions import check_referenced_query_access
+
+        before = self.get_doc_before_save()
+        existing = referenced_queries(before.operations) if before else set()
+        for dep in referenced_queries(self.operations) - existing:
+            check_referenced_query_access(dep)
 
     def _validate_no_circular_dependency(self):
         """Raise an error if the current operations would create a circular query reference."""
@@ -100,7 +118,13 @@ class InsightsQueryv3(Document):
             )
 
     def on_update(self):
-        sync_query_references(self.name, self.operations)
+        frappe.enqueue(
+            sync_query_references,
+            query_name=self.name,
+            operations=self.operations,
+            enqueue_after_commit=True,
+            now=bool(frappe.flags.in_test),
+        )
 
     def cleanup_empty_folder(self, folder_name):
         """Delete folder if it has no queries or charts"""
@@ -120,23 +144,30 @@ class InsightsQueryv3(Document):
             frappe.delete_doc("Insights Folder", folder_name, force=True, ignore_permissions=True)
 
     def get_source_tables(self):
-        """Collect all leaf table references from this query and its transitive dependencies."""
-        all_query_names = {self.name} | transitive_closure(self.name)
-        Ref = frappe.qb.DocType("Insights Query Reference")
-        rows = (
-            frappe.qb.from_(Ref)
-            .select(Ref.data_source, Ref.table_name)
-            .where((Ref.query.isin(list(all_query_names))) & (Ref.ref_type == "Table"))
-            .distinct()
-            .run(as_dict=True)
-        )
-        return [{"data_source": r.data_source, "table_name": r.table_name} for r in rows]
+        """Collect all leaf table references from this query and its transitive dependencies.
 
-    def build(self, active_operation_idx=None, use_live_connection=None):
+        Which tables a query reads is a forward question, so each row answers its
+        own. The edge table lags every write, and this runs right after a save.
+        """
+        seen: set[tuple] = set()
+        tables = []
+        for name in {self.name} | transitive_closure(self.name):
+            operations = frappe.db.get_value("Insights Query v3", name, "operations")
+            for ref in table_references(operations):
+                key = (ref["data_source"], ref["table_name"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                tables.append(ref)
+        return tables
+
+    def build(self, active_operation_idx=None, use_live_connection=None, force=False):
         builder = IbisQueryBuilder(self, active_operation_idx)
         builder.use_live_connection = (
             use_live_connection if use_live_connection is not None else self.use_live_connection
         )
+        # a script runs while the query is built, so only the builder can skip its cache
+        builder.force = force
         ibis_query = builder.build()
 
         if ibis_query is None:
@@ -154,7 +185,7 @@ class InsightsQueryv3(Document):
         page_size: int = 100,
     ):
         with set_adhoc_filters(adhoc_filters):
-            ibis_query = self.build(active_operation_idx)
+            ibis_query = self.build(active_operation_idx, force=force)
 
         results, time_taken = execute_ibis_query(
             ibis_query,
@@ -169,6 +200,9 @@ class InsightsQueryv3(Document):
 
         columns = get_columns_from_schema(ibis_query.schema())
 
+        carried = [c["name"] for c in columns if is_carried_currency_column(c["name"])]
+        codes = {row[name] for name in carried for row in results}
+
         sql = None
         with suppress(Exception):
             for op in frappe.parse_json(self.operations) or []:
@@ -180,6 +214,7 @@ class InsightsQueryv3(Document):
             "sql": ibis.to_sql(ibis_query),
             "columns": columns,
             "rows": results,
+            "currency_symbols": get_currency_symbols(codes),
             "time_taken": time_taken,
             "is_aggregated_sql": _sql_has_group_by(sql) if sql else False,
         }
@@ -210,8 +245,33 @@ class InsightsQueryv3(Document):
     def download_results(
         self, format: str = "csv", active_operation_idx: int | None = None, adhoc_filters: dict | None = None
     ):
+        from insights.insights.doctype.insights_team.insights_team import is_admin
+
+        if not is_admin(frappe.session.user) and not frappe.db.get_single_value(
+            "Insights Settings", "allow_download"
+        ):
+            frappe.throw(
+                "You are not allowed to download data. Contact your administrator.",
+                frappe.PermissionError,
+            )
+
+        if not is_admin(frappe.session.user) and not (
+            frappe.has_permission(self.doctype, ptype="export")
+            and frappe.has_permission(self.doctype, ptype="read", doc=self)
+        ):
+            frappe.throw(
+                frappe._(
+                    "Your role does not have the export permission for queries. Contact your administrator."
+                ),
+                frappe.PermissionError,
+            )
+
         with set_adhoc_filters(adhoc_filters):
             ibis_query = self.build(active_operation_idx)
+
+        hidden = [col for col in ibis_query.columns if is_hidden_column(col)]
+        if hidden:
+            ibis_query = ibis_query.drop(*hidden)
 
         import ibis.expr.datatypes as dt
 
@@ -223,14 +283,18 @@ class InsightsQueryv3(Document):
         if decimal_casts:
             ibis_query = ibis_query.mutate(**decimal_casts)
 
+        if hasattr(ibis_query, "limit"):
+            ibis_query = ibis_query.limit(100_000)
+
         results, _ = execute_ibis_query(
             ibis_query,
             cache=False,
-            page_size=10_00_000,
+            paginate=False,
             reference_doctype=self.doctype,
             reference_name=self.name,
         )
 
+        results = as_text(results)
         if format == "excel":
             output = BytesIO()
             results.to_excel(output, index=False, engine="openpyxl")
@@ -272,8 +336,7 @@ class InsightsQueryv3(Document):
     @insights_whitelist()
     def get_columns_for_selection(self, active_operation_idx: int | None = None):
         ibis_query = self.build(active_operation_idx)
-        columns = get_columns_from_schema(ibis_query.schema())
-        return columns
+        return [c for c in get_columns_from_schema(ibis_query.schema()) if not c.get("hidden")]
 
     def evaluate_alert_expression(self, expression):
         builder = IbisQueryBuilder(self)
@@ -291,6 +354,8 @@ class InsightsQueryv3(Document):
 
     @insights_whitelist()
     def export(self):
+        from insights.permissions import check_referenced_query_access
+
         query = {
             "version": "1.0",
             "timestamp": frappe.utils.now(),
@@ -313,6 +378,13 @@ class InsightsQueryv3(Document):
 
         linked_queries = get_direct_dependencies(self.name)
         for q in linked_queries:
+            # `on_trash` drops the edge rows but not the operations that name the
+            # query, so a deleted reference is a name that resolves to nothing.
+            if not frappe.db.exists("Insights Query v3", q):
+                continue
+
+            # export() recurses, so this covers the whole dependency tree
+            check_referenced_query_access(q)
             exported_query = frappe.get_doc("Insights Query v3", q).export()
             query["dependencies"]["queries"][q] = exported_query
 
@@ -324,40 +396,6 @@ class InsightsQueryv3(Document):
         new_query.title = f"{self.title} (Copy)"
         new_query.insert()
         return new_query.name
-
-    @insights_whitelist(role="Insights Admin")
-    def explain(self, active_operation_idx: int | None = None):
-        """Return EXPLAIN (ANALYZE for data store, plain for live) output for this query."""
-        ibis_query = self.build(active_operation_idx)
-
-        from insights.insights.doctype.insights_data_source_v3.data_warehouse import is_warehouse
-
-        backend = ibis_query.get_backend()
-        use_analyze = is_warehouse(backend)
-
-        sql_text = str(ibis.to_sql(ibis_query))
-        prefix = "EXPLAIN ANALYZE" if use_analyze else "EXPLAIN"
-
-        try:
-            result = backend.raw_sql(f"{prefix} {sql_text}")
-            rows = result.fetchall()
-            desc = result.description
-        except Exception as e:
-            frappe.throw(f"EXPLAIN failed: {e}")
-
-        if use_analyze:
-            plan = "\n".join(filter(None, (row[1] for row in rows)))
-        else:
-            import pandas as pd
-
-            headers = [d[0] for d in desc]
-            df = pd.DataFrame(rows, columns=headers).fillna("NULL").astype(str)
-            plan = df.to_markdown(index=False, tablefmt="pipe")
-
-        return {
-            "plan": plan,
-            "is_analyze": use_analyze,
-        }
 
     @insights_whitelist(role="Insights Admin")
     def refresh_stored_tables(self):
@@ -404,13 +442,47 @@ def _sql_has_group_by(sql: str) -> bool:
     return False
 
 
-def import_query(query, workbook):
+def already_in_workbook(query_name, workbook) -> bool:
+    """Whether `query_name` is a query the target workbook already holds.
+
+    A reference that resolves here needs no copy, and the copy would be a second
+    row for one query. The file cannot answer this: it carries the exporting
+    site's workbook name, and `autoname` makes those a bare counter, so every
+    site has a workbook "1". Ask the row.
+    """
+    if not query_name:
+        return False
+
+    return frappe.db.get_value("Insights Query v3", query_name, "workbook") == workbook
+
+
+def import_query(query, workbook, id_map=None):
+    """Copy an exported query into `workbook`, references and all.
+
+    The dependencies go in first, so the query is inserted already naming the
+    copies that replace them. It is never stored naming the exporting site's
+    queries, which is a state `validate` would read as the real one.
+
+    `export` nests, so a query two branches both build on appears once per branch.
+    `id_map` is shared down the recursion, so it is imported once.
+    """
+    from insights.insights.doctype.insights_workbook.insights_workbook import (
+        _rewrite_query_references,
+    )
+
     query = frappe.parse_json(query)
     query = deep_convert_dict_to_dict(query)
+
+    id_map = {} if id_map is None else id_map
+    for name, dependency in ((query.get("dependencies") or {}).get("queries") or {}).items():
+        if name in id_map or already_in_workbook(name, workbook):
+            continue
+        id_map[name] = import_query(dependency, workbook, id_map)
 
     new_query = frappe.new_doc("Insights Query v3")
     new_query.update(query.doc)
     new_query.workbook = workbook
+    new_query.operations = _rewrite_query_references(query.doc.operations, id_map)
 
     if not hasattr(new_query, "sort_order") or new_query.sort_order is None:
         max_sort_order = (
@@ -422,45 +494,17 @@ def import_query(query, workbook):
             or -1
         )
         new_query.sort_order = max_sort_order + 1
+
     new_query.insert()
-
-    if str(workbook) == str(query.doc.workbook) or not query.dependencies.queries:
-        return new_query.name
-
-    # if query is copied to a new workbook, all the dependencies will be copied as well
-    # so we create a new query in the workbook for each dependency
-    # and replace the old query names with the new query names
-
-    id_map = {}
-    for q, exported_query in query.dependencies.queries.items():
-        id_map[q] = import_query(exported_query, workbook=new_query.workbook)
-
-    # replace the old query names with the new query names
-    operations = frappe.parse_json(new_query.operations)
-    operations = deep_convert_dict_to_dict(operations)
-
-    should_update = False
-    for op in operations:
-        if not op.get("table") or not op.get("table").get("type") or not op.get("table").get("query_name"):
-            continue
-
-        ref_query = op.table.query_name
-        if ref_query in id_map:
-            op.table.query_name = id_map[ref_query]
-            should_update = True
-
-    if should_update:
-        new_query.db_set(
-            "operations",
-            frappe.as_json(operations),
-            update_modified=False,
-        )
 
     return new_query.name
 
 
 @contextmanager
 def set_adhoc_filters(filters):
-    frappe.local.insights_adhoc_filters = filters or getattr(frappe.local, "insights_adhoc_filters", {})
+    # If frappe.local.insights_adhoc_filters exists but is None, getattr returns None.
+    # We must ensure it's a dict.
+    current = getattr(frappe.local, "insights_adhoc_filters", None)
+    frappe.local.insights_adhoc_filters = filters or current or {}
     yield
     frappe.local.insights_adhoc_filters = None
